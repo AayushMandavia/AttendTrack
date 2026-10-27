@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Production build outputs
+dist/
+
+# Environment files and credentials (never commit real credentials)
+.env
+*.env
+*.env.local
+server/.env
+
+# Local storage and file uploads
+uploads/
+server/uploads/
+storage/
+server/storage/
+server/storage/private_files/
+
+# OCR models and downloaded artifacts
+*.traineddata
+server/*.traineddata
+eng.traineddata
+server/eng.traineddata
+
+# Database and SQLite test files
+*.db
+*.db-journal
+server/prisma/*.db
+server/prisma/*.db-journal
+
+# Logs and coverage
+logs/
+*.log
+npm-debug.log*
+coverage/
+.DS_Store
+
+# Scratch scripts and temporary prompt artifacts
+scratch/
+prompt_*.txt

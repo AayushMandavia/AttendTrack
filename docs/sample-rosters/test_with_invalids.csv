@@ -1,0 +1,6 @@
+SAP ID,Full Name,Roll Number,Branch,Academic Year,Class Group,Division,Enrollment Status
+60001270006,Valid Enrolled Student,27CE06,Computer Engineering,First Year,CE — Year 1 / A,A,Enrolled
+,Missing SAP ID Student,27CE07,Computer Engineering,First Year,CE — Year 1 / A,A,Enrolled
+60001270008,,27CE08,Computer Engineering,First Year,CE — Year 1 / A,A,Enrolled
+60001270006,Duplicate In File Student,27CE09,Computer Engineering,First Year,CE — Year 1 / A,A,Enrolled
+60001270010,Invalid Year Student,27CE10,Computer Engineering,Tenth Grade,CE — Year 1 / A,A,Enrolled

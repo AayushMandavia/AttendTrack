@@ -1,0 +1,151 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Student {
+  id               String   @id @default(cuid())
+  name             String
+  branch           String?
+  rollNo           String?
+  sapId            String   @unique
+  academicYear     String?
+  classGroup       String?
+  division         String?
+  enrollmentStatus String?  @default("Enrolled")
+  passwordHash     String?
+  defaultPassword  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  attendanceRecords AttendanceRecord[]
+  letters           AttendanceLetter[]
+
+  @@index([sapId])
+  @@index([classGroup])
+  @@index([branch])
+  @@index([academicYear])
+  @@map("students")
+}
+
+model Lecture {
+  id              String   @id
+  subject         String
+  className       String
+  date            String   // Format: YYYY-MM-DD
+  startTime       String   // Format: HH:MM
+  endTime         String   // Format: HH:MM
+  studentIds      String[]
+  facultyId       String?
+  timetableSlotId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  attendanceRecords AttendanceRecord[]
+
+  @@map("lectures")
+}
+
+model TimetableSlot {
+  id         String   @id // e.g. "SLOT-EXTC-MON-1"
+  dayOfWeek  String   // "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+  dayIndex   Int      // 1 = Monday, ..., 6 = Saturday
+  slotNumber Int      // 1 to 9
+  startTime  String   // "08:00", ..., "17:00"
+  endTime    String   // "09:00", ..., "18:00"
+  subject    String   // e.g. "Database Systems"
+  className  String   // e.g. "EXTC — Year 3 / A"
+  branch     String   // e.g. "EXTC"
+  facultyId  String   // e.g. "FAC-101"
+  facultyName String? // e.g. "Dr. P. Sharma"
+  room       String?  // e.g. "Room 304"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([className, dayOfWeek, slotNumber])
+  @@map("timetable_slots")
+}
+
+model AttendanceRecord {
+  id                  String    @id
+  lectureId           String
+  studentId           String
+  status              String    // 'Present' or 'Absent'
+  submitted           Boolean   @default(true)
+  submittedBy         String
+  submittedAt         DateTime  @default(now())
+  correctedBy         String?
+  correctedAt         DateTime?
+  correctionReference String?
+
+  lecture             Lecture   @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  student             Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([lectureId, studentId])
+  @@map("attendance_records")
+}
+
+model Document {
+  id               String   @id
+  storageKey       String   @unique
+  storageProvider  String   @default("local") // "local" or "s3"
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  uploadTimestamp  DateTime @default(now())
+
+  // OCR and Extraction results
+  extractionStatus String   @default("pending") // "success", "partial", "failed"
+  rawExtractedJson Json?
+  missingFields    String[] @default([])
+  notes            String[] @default([])
+  manualVerified   Boolean  @default(false)
+
+  // Associated letters
+  letters          AttendanceLetter[]
+
+  @@map("documents")
+}
+
+model AttendanceLetter {
+  id             String    @id
+  studentId      String
+  studentName    String
+  rawStudentName String?
+  rawStudentId   String?
+  sapId          String?
+  date           String    // Format: YYYY-MM-DD
+  startTime      String?   // Format: HH:MM
+  endTime        String?   // Format: HH:MM
+  subject        String?
+  reference      String?
+  uploadId       String?
+  documentName   String?
+  matchedSubject String?
+  lectureId      String?
+  validation     String
+  status         String    @default("Pending") // 'Pending', 'Approved', 'Rejected'
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  reviewedBy     String?
+  reviewedAt     DateTime?
+
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  document       Document? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@map("attendance_letters")
+}
+
+model AuditEvent {
+  id        String   @id
+  action    String
+  details   String
+  actor     String   @default("System")
+  timestamp DateTime @default(now())
+
+  @@map("audit_events")
+}
