@@ -387,23 +387,26 @@ export default function TeacherPortalView({
     };
   }, [data.lectures, todayStr, currentTimeStr]);
 
-  // "in teacher always keep it in progress lec only":
-  // Always lock lectureId to the in-progress lecture
+  // Default lectureId to the in-progress lecture if no lecture is currently selected
   useEffect(() => {
     if (!data.lectures || data.lectures.length === 0) return;
-
-    if (lectureTimeline.inProgress) {
-      if (lectureId !== lectureTimeline.inProgress.id) {
-        setLectureId(lectureTimeline.inProgress.id);
-      }
+    if (lectureId && (data.lectures.some(l => l.id === lectureId) || lectureTimeline.inProgress?.id === lectureId)) {
       return;
     }
-
+    if (lectureTimeline.inProgress) {
+      setLectureId(lectureTimeline.inProgress.id);
+      return;
+    }
     setLectureId(data.lectures[0].id);
   }, [lectureId, data.lectures, lectureTimeline.inProgress, setLectureId]);
 
   // Selected lecture & enrolled roster
   const currentLecture = useMemo(() => {
+    if (lectureId) {
+      const byId = (data.lectures || []).find(l => l.id === lectureId);
+      if (byId) return { ...byId, room: byId.room || 'LH-201' };
+      if (lectureTimeline.inProgress?.id === lectureId) return lectureTimeline.inProgress;
+    }
     if (lectureTimeline.inProgress) {
       const found = (data.lectures || []).find(l => l.id === lectureTimeline.inProgress.id);
       return found ? { ...found, room: found.room || lectureTimeline.inProgress.room || 'LH-201' } : lectureTimeline.inProgress;
@@ -411,25 +414,48 @@ export default function TeacherPortalView({
     return data.lectures.find(l => l.id === lectureId) || data.lectures[0] || null;
   }, [data.lectures, lectureId, lectureTimeline.inProgress]);
 
-  // Only keep in-progress lecture(s) in teacher Scheduled Lecture picker
-  const inProgressLectures = useMemo(() => {
+  // Selectable lectures in teacher Scheduled Lecture picker (in-progress + all teacher lectures)
+  const selectableLectures = useMemo(() => {
+    const list = [];
+    const seen = new Set();
     if (lectureTimeline.inProgress) {
-      return [lectureTimeline.inProgress];
+      list.push({ ...lectureTimeline.inProgress, isInProgress: true });
+      seen.add(lectureTimeline.inProgress.id);
     }
-    return [];
-  }, [lectureTimeline.inProgress]);
+    for (const l of (data.lectures || [])) {
+      if (!seen.has(l.id)) {
+        list.push({ ...l, isInProgress: false });
+        seen.add(l.id);
+      }
+    }
+    return list;
+  }, [lectureTimeline.inProgress, data.lectures]);
+
+  // Letters linked to the currently selected lecture
+  const lettersForCurrentLecture = useMemo(() => {
+    if (!currentLecture) return [];
+    return (data.letters || []).filter(
+      l => l.lectureId === currentLecture.id ||
+           (l.date === currentLecture.date && (l.matchedSubject === currentLecture.subject || l.subject === currentLecture.subject))
+    );
+  }, [data.letters, currentLecture]);
 
   // Authoritative student roster for selected lecture
-  // Strictly matches student.classGroup === currentLecture.className
-  // Completely prevents cross-department contamination (CE vs EXTC)
+  // Includes cohort students + any cross-listed student with an attendance record or letter for this lecture
   const roster = useMemo(() => {
     if (!currentLecture || !currentLecture.className) return [];
     const targetClass = currentLecture.className.trim().toLowerCase();
+    const recordStudentIds = new Set(
+      (data.attendance || []).filter(a => a.lectureId === currentLecture.id).map(a => a.studentId)
+    );
+    const letterStudentIds = new Set(
+      lettersForCurrentLecture.map(l => l.studentId).filter(Boolean)
+    );
     return (data.students || []).filter(s => {
       const studentClass = (s.classGroup || '').trim().toLowerCase();
-      return studentClass === targetClass;
+      return studentClass === targetClass || recordStudentIds.has(s.id) || letterStudentIds.has(s.id);
     });
-  }, [data.students, currentLecture]);
+  }, [data.students, data.attendance, lettersForCurrentLecture, currentLecture]);
 
   // Prior submitted records for this lecture
   const submittedForCurrentLecture = useMemo(() => {
@@ -441,19 +467,24 @@ export default function TeacherPortalView({
   const isCorrectionExpired = currentLecture?.id === lectureTimeline.inProgress?.id ? false : (windowInfo.isExpired ?? false);
 
   // Active statuses calculation per student
-  // If explicitly chosen in statuses, use that; otherwise use prior saved status; default to 'Present'
+  // Coordinator-approved letters take authoritative Present status unless teacher actively edits within window
   const activeStatuses = useMemo(() => {
     const map = {};
     roster.forEach(s => {
+      const prior = submittedForCurrentLecture.find(a => a.studentId === s.id);
+      const approvedLetter = lettersForCurrentLecture.find(l => l.status === 'Approved' && (l.studentId === s.id || l.sapId === s.sapId));
       if (statuses[s.id]) {
         map[s.id] = statuses[s.id];
+      } else if (prior) {
+        map[s.id] = prior.status;
+      } else if (approvedLetter) {
+        map[s.id] = 'Present';
       } else {
-        const prior = submittedForCurrentLecture.find(a => a.studentId === s.id);
-        map[s.id] = prior?.status || 'Present';
+        map[s.id] = 'Present';
       }
     });
     return map;
-  }, [roster, statuses, submittedForCurrentLecture]);
+  }, [roster, statuses, submittedForCurrentLecture, lettersForCurrentLecture]);
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
@@ -1026,9 +1057,9 @@ export default function TeacherPortalView({
                         value={currentLecture?.id || lectureId}
                         onChange={e => handleLectureChange(e.target.value)}
                       >
-                        {inProgressLectures.map(l => (
+                        {selectableLectures.map(l => (
                           <option key={l.id} value={l.id}>
-                            🔴 [IN PROGRESS] {l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})
+                            {l.isInProgress ? '🔴 [IN PROGRESS] ' : ''}{l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})
                           </option>
                         ))}
                       </select>
@@ -1224,6 +1255,34 @@ export default function TeacherPortalView({
                                     {student.rollNo && (
                                       <span className="student-roll-text">Roll: {student.rollNo}</span>
                                     )}
+                                    {(() => {
+                                      const stLetters = lettersForCurrentLecture.filter(l => l.studentId === student.id || l.sapId === student.sapId);
+                                      const appLet = stLetters.find(l => l.status === 'Approved');
+                                      const rejLet = stLetters.find(l => l.status === 'Rejected');
+                                      const pendLet = stLetters.find(l => l.status === 'Pending');
+                                      if (appLet) {
+                                        return (
+                                          <span className="pill teal" style={{ fontSize: '11px', padding: '2px 8px', marginLeft: '6px' }}>
+                                            ✓ Approved Letter ({appLet.reference || appLet.id})
+                                          </span>
+                                        );
+                                      }
+                                      if (rejLet) {
+                                        return (
+                                          <span className="pill red" style={{ fontSize: '11px', padding: '2px 8px', marginLeft: '6px' }}>
+                                            ✗ Letter Rejected
+                                          </span>
+                                        );
+                                      }
+                                      if (pendLet) {
+                                        return (
+                                          <span className="pill amber" style={{ fontSize: '11px', padding: '2px 8px', marginLeft: '6px' }}>
+                                            ⏳ Letter Pending
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </td>
                                 <td className="td-action">
@@ -1828,13 +1887,13 @@ export default function TeacherPortalView({
                       {data.letters.length === 0 ? (
                         <tr><td colSpan="6" className="teacher-table-empty">No letter requests found.</td></tr>
                       ) : (
-                        data.letters.slice(0, 15).map(l => (
+                        data.letters.slice(0, 25).map(l => (
                           <tr key={l.id}>
                             <td>{l.date}</td>
                             <td><b>{l.studentName}</b></td>
-                            <td><code>{l.sapId}</code></td>
-                            <td>{l.subject}</td>
-                            <td><code>{l.reference}</code></td>
+                            <td><code>{l.sapId || l.rawStudentId || l.studentId}</code></td>
+                            <td>{l.matchedSubject || l.subject}</td>
+                            <td><code>{l.reference || l.id}</code></td>
                             <td>
                               <span className={`pill ${l.status === 'Approved' ? 'teal' : l.status === 'Rejected' ? 'red' : 'amber'}`}>
                                 {l.status}

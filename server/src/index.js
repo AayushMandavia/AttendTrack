@@ -22,6 +22,7 @@ import {
   findDocumentById,
   getTimetableSlots,
   generateAndSaveDatedLectures,
+  ensureCurrentWeekLecturesExist,
   getAuthoritativeRosterForLecture,
   getStudentsPaginated,
   createStudent,
@@ -290,17 +291,40 @@ app.get('/api/student/attendance', authenticate, requireRoles(ROLES.STUDENT), as
     }
     const online = await testDatabaseConnection();
     let records = [];
+    let letters = [];
     if (online) {
       records = await prisma.attendanceRecord.findMany({
         where: { studentId: student.id },
         include: { lecture: true },
         orderBy: { submittedAt: 'desc' }
       });
+      letters = await prisma.attendanceLetter.findMany({
+        where: { studentId: student.id },
+        orderBy: { createdAt: 'desc' }
+      });
     } else {
       const fb = getFallbackStore();
-      records = fb.attendance.filter(a => a.studentId === student.id || a.studentId === student.sapId);
+      records = fb.attendance
+        .filter(a => a.studentId === student.id || a.studentId === student.sapId)
+        .map(a => ({
+          ...a,
+          lecture: fb.lectures.find(l => l.id === a.lectureId) || null
+        }));
+      letters = fb.letters.filter(l => l.studentId === student.id || l.sapId === student.sapId);
     }
-    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: records });
+    const present = records.filter(r => r.status === 'Present').length;
+    const absent = records.filter(r => r.status === 'Absent').length;
+    const totalRecorded = present + absent;
+    const summary = {
+      totalRecorded,
+      present,
+      absent,
+      approvedLetters: letters.filter(l => l.status === 'Approved').length,
+      rejectedLetters: letters.filter(l => l.status === 'Rejected').length,
+      pendingLetters: letters.filter(l => l.status === 'Pending').length,
+      attendancePct: totalRecorded > 0 ? Math.round((present / totalRecorded) * 100) : 100
+    };
+    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: records, letters, summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -339,17 +363,40 @@ app.get('/api/student/:sapId/attendance', authenticate, requireStudentSelfAccess
     }
     const online = await testDatabaseConnection();
     let records = [];
+    let letters = [];
     if (online) {
       records = await prisma.attendanceRecord.findMany({
         where: { studentId: student.id },
         include: { lecture: true },
         orderBy: { submittedAt: 'desc' }
       });
+      letters = await prisma.attendanceLetter.findMany({
+        where: { studentId: student.id },
+        orderBy: { createdAt: 'desc' }
+      });
     } else {
       const fb = getFallbackStore();
-      records = fb.attendance.filter(a => a.studentId === student.id || a.studentId === student.sapId);
+      records = fb.attendance
+        .filter(a => a.studentId === student.id || a.studentId === student.sapId)
+        .map(a => ({
+          ...a,
+          lecture: fb.lectures.find(l => l.id === a.lectureId) || null
+        }));
+      letters = fb.letters.filter(l => l.studentId === student.id || l.sapId === student.sapId);
     }
-    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: records });
+    const present = records.filter(r => r.status === 'Present').length;
+    const absent = records.filter(r => r.status === 'Absent').length;
+    const totalRecorded = present + absent;
+    const summary = {
+      totalRecorded,
+      present,
+      absent,
+      approvedLetters: letters.filter(l => l.status === 'Approved').length,
+      rejectedLetters: letters.filter(l => l.status === 'Rejected').length,
+      pendingLetters: letters.filter(l => l.status === 'Pending').length,
+      attendancePct: totalRecorded > 0 ? Math.round((present / totalRecorded) * 100) : 100
+    };
+    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: records, letters, summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -407,6 +454,57 @@ app.get('/api/lectures/:lectureId/roster', async (req, res) => {
     }
 
     const roster = await getAuthoritativeRosterForLecture(lecture);
+    const attendance = await getAttendanceByLecture(lecture.id);
+    const online = await testDatabaseConnection();
+    let letters = [];
+    if (online) {
+      letters = await prisma.attendanceLetter.findMany({
+        where: { lectureId: lecture.id },
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      const fb = getFallbackStore();
+      letters = fb.letters.filter(l => l.lectureId === lecture.id);
+    }
+
+    const rosterIds = new Set(roster.map(s => s.id));
+    const extraStudentIds = new Set([
+      ...attendance.map(a => a.studentId),
+      ...letters.map(l => l.studentId)
+    ]);
+    const extraStudents = [];
+    for (const sid of extraStudentIds) {
+      if (sid && !rosterIds.has(sid)) {
+        const st = await findStudentById(sid);
+        if (st) extraStudents.push(st);
+      }
+    }
+    const combinedStudents = [...roster, ...extraStudents];
+    const rosterWithStatus = combinedStudents.map(s => {
+      const att = attendance.find(a => a.studentId === s.id);
+      const studentLetters = letters.filter(l => l.studentId === s.id || l.sapId === s.sapId);
+      const approvedLetter = studentLetters.find(l => l.status === 'Approved') || null;
+      const rejectedLetter = studentLetters.find(l => l.status === 'Rejected') || null;
+      const pendingLetter = studentLetters.find(l => l.status === 'Pending') || null;
+      return {
+        ...s,
+        attendanceStatus: att ? att.status : (approvedLetter ? 'Present' : 'Unmarked'),
+        attendanceRecord: att || null,
+        approvedLetter,
+        rejectedLetter,
+        pendingLetter
+      };
+    });
+
+    const summary = {
+      totalStudents: roster.length,
+      presentCount: attendance.filter(a => a.status === 'Present').length,
+      absentCount: attendance.filter(a => a.status === 'Absent').length,
+      approvedLetterCount: letters.filter(l => l.status === 'Approved').length,
+      rejectedLetterCount: letters.filter(l => l.status === 'Rejected').length,
+      pendingLetterCount: letters.filter(l => l.status === 'Pending').length
+    };
+
     res.json({
       ok: true,
       lectureId: lecture.id,
@@ -414,7 +512,11 @@ app.get('/api/lectures/:lectureId/roster', async (req, res) => {
       className: lecture.className,
       date: lecture.date,
       totalStudents: roster.length,
-      students: roster
+      students: roster,
+      attendance,
+      letters,
+      rosterWithStatus,
+      summary
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -599,8 +701,19 @@ app.post('/api/attendance/admin-correction', async (req, res) => {
   }
 });
 
+function normalizeEndTimeForSlot(startStr = '', endStr = '') {
+  if (!endStr) return '';
+  const m = String(endStr).trim().match(/^0?([1-6]):([0-5]\d)$/);
+  if (m && (!startStr || String(startStr).trim() >= '08:00')) {
+    return `${parseInt(m[1], 10) + 12}:${m[2]}`;
+  }
+  return String(endStr).trim();
+}
+
 app.post('/api/letters', async (req, res) => {
   try {
+    await ensureCurrentWeekLecturesExist();
+
     // Multi-student batch queueing
     if (Array.isArray(req.body.students) && req.body.students.length > 0) {
       const {
@@ -620,40 +733,58 @@ app.post('/api/letters', async (req, res) => {
       }
 
       const allLectures = await getLectures();
+      const allDbStudents = await (await import('./db.js')).getStudents(500);
       const batchItems = [];
+      const skippedStudents = [];
 
       for (const st of rawStudents) {
-        // Strict SAP ID & Name Verification
         const sapId = (st.sapId || st.rawStudentId || '').trim();
         const extractedName = (st.rawStudentName || st.studentName || '').trim();
 
-        if (!sapId) {
-          return res.status(400).json({
-            error: `SAP ID Required: Student "${extractedName || st.studentId}" does not have an SAP ID. Approval blocked.`
-          });
+        let student = null;
+        if (sapId) {
+          student = await findStudentBySapId(sapId);
+        }
+        if (!student && st.studentId) {
+          student = await findStudentById(st.studentId);
         }
 
-        // Search by SAP ID first
-        const studentBySap = await findStudentBySapId(sapId);
-        if (!studentBySap) {
-          return res.status(400).json({
-            error: `Unknown SAP ID: SAP ID "${sapId}" is not enrolled in the institutional database.`
+        if (!sapId && !student) {
+          skippedStudents.push({
+            studentId: st.studentId || null,
+            sapId: null,
+            studentName: extractedName || st.studentId || 'Unknown',
+            reason: st.studentId
+              ? `Student ${extractedName || st.studentId} (${st.studentId}) is not enrolled in the database roster.`
+              : `SAP ID Required: Student "${extractedName || st.studentId}" does not have an SAP ID. Approval blocked.`
           });
+          continue;
         }
 
-        const student = studentBySap;
+        if (!student) {
+          skippedStudents.push({
+            studentId: st.studentId || null,
+            sapId,
+            studentName: extractedName || sapId,
+            reason: `Unknown SAP ID: SAP ID "${sapId}" is not enrolled in the institutional database.`
+          });
+          continue;
+        }
+
         // Verify name consistency
         if (extractedName) {
           const normExtracted = extractedName.toLowerCase();
           const normRegistered = student.name.toLowerCase();
           if (normExtracted !== normRegistered) {
-            // Check if name belongs to another student
-            const allDbStudents = await (await import('./db.js')).getStudents();
             const conflict = allDbStudents.find(s => s.name.toLowerCase() === normExtracted && s.id !== student.id);
             if (conflict) {
-              return res.status(400).json({
-                error: `SAP ID / Name Mismatch: SAP ID (${student.sapId}) belongs to ${student.name}, but name belongs to ${conflict.name}. Approval strictly blocked.`
+              skippedStudents.push({
+                studentId: student.id,
+                sapId: student.sapId,
+                studentName: extractedName,
+                reason: `SAP ID / Name Mismatch: SAP ID (${student.sapId}) belongs to ${student.name}, but name belongs to ${conflict.name}. Approval strictly blocked.`
               });
+              continue;
             }
           }
         }
@@ -661,11 +792,16 @@ app.post('/api/letters', async (req, res) => {
         const studentSubject = st.subject !== undefined ? st.subject : subject;
         const studentDate = st.date || date;
         const studentStart = st.startTime !== undefined ? st.startTime : startTime;
-        const studentEnd = st.endTime !== undefined ? st.endTime : endTime;
+        const rawStudentEnd = st.endTime !== undefined ? st.endTime : endTime;
+        const studentEnd = normalizeEndTimeForSlot(studentStart, rawStudentEnd);
         const subjLower = studentSubject.trim().toLowerCase();
 
+        const isStudentInLecture = (l) =>
+          (Array.isArray(l.studentIds) && l.studentIds.includes(student.id)) ||
+          (student.classGroup && l.className === student.classGroup);
+
         const candidates = allLectures.filter(
-          l => l.date === studentDate && l.studentIds.includes(student.id) && (
+          l => l.date === studentDate && isStudentInLecture(l) && (
             !subjLower ||
             l.subject.toLowerCase().includes(subjLower) ||
             subjLower.includes(l.subject.toLowerCase())
@@ -673,11 +809,20 @@ app.post('/api/letters', async (req, res) => {
         );
         const exact = candidates.filter(l => (!studentStart || l.startTime >= studentStart) && (!studentEnd || l.endTime <= studentEnd));
         const partial = candidates.some(l => studentStart && studentEnd && l.startTime < studentEnd && l.endTime > studentStart && !(l.startTime >= studentStart && l.endTime <= studentEnd));
-        let matched = exact.length >= 1 ? exact[0] : (candidates[0] || null);
-        if (!matched && subjLower !== 'unknown lecture') {
-          matched = allLectures.find(l => l.date === studentDate && l.studentIds.includes(student.id)) ||
-                    allLectures.find(l => l.studentIds.includes(student.id)) ||
-                    allLectures[0] ||
+        const isOffHours = Boolean(studentStart && studentStart >= '18:00');
+
+        let matched = null;
+        if (exact.length === 1) {
+          matched = exact[0];
+        } else if (exact.length > 1 && subjLower) {
+          matched = exact[0];
+        } else if (exact.length === 0 && !partial && !isOffHours && candidates.length === 1) {
+          matched = candidates[0];
+        }
+
+        if (!matched && !partial && !isOffHours && subjLower !== 'unknown lecture' && candidates.length <= 1) {
+          matched = allLectures.find(l => l.date === studentDate && isStudentInLecture(l)) ||
+                    allLectures.find(l => isStudentInLecture(l)) ||
                     null;
         }
 
@@ -697,21 +842,29 @@ app.post('/api/letters', async (req, res) => {
           sapId: student.sapId,
           date: studentDate,
           startTime: studentStart,
-          endTime: studentEnd,
+          endTime: rawStudentEnd,
           subject: studentSubject,
           reference: st.reference || reference,
           uploadId,
           documentName,
           matchedSubject: matched?.subject || studentSubject || '',
-          lectureId: matched?.id || 'LEC-101',
+          lectureId: matched?.id || null,
           validation
+        });
+      }
+
+      if (batchItems.length === 0) {
+        return res.status(400).json({
+          error: skippedStudents[0]?.reason || 'No valid enrolled students with verified SAP IDs found in batch.',
+          skipped: skippedStudents
         });
       }
 
       const items = await queueBatchAttendanceLetters(batchItems, actor);
       return res.status(201).json({
-        message: `Queued ${items.length} student attendance letters for review.`,
-        items
+        message: `Queued ${items.length} student attendance letters for review.${skippedStudents.length > 0 ? ` ${skippedStudents.length} skipped.` : ''}`,
+        items,
+        skipped: skippedStudents
       });
     }
 
@@ -746,20 +899,34 @@ app.post('/api/letters', async (req, res) => {
 
     const allLectures = await getLectures();
     const singleSubjLower = subject.trim().toLowerCase();
+    const normEndTime = normalizeEndTimeForSlot(startTime, endTime);
+    const isStudentInLecture = (l) =>
+      (Array.isArray(l.studentIds) && l.studentIds.includes(student.id)) ||
+      (student.classGroup && l.className === student.classGroup);
+
     const candidates = allLectures.filter(
-      l => l.date === date && l.studentIds.includes(student.id) && (
+      l => l.date === date && isStudentInLecture(l) && (
         !singleSubjLower ||
         l.subject.toLowerCase().includes(singleSubjLower) ||
         singleSubjLower.includes(l.subject.toLowerCase())
       )
     );
-    const exact = candidates.filter(l => (!startTime || l.startTime >= startTime) && (!endTime || l.endTime <= endTime));
-    const partial = candidates.some(l => startTime && endTime && l.startTime < endTime && l.endTime > startTime && !(l.startTime >= startTime && l.endTime <= endTime));
-    let matched = exact.length >= 1 ? exact[0] : (candidates[0] || null);
-    if (!matched && singleSubjLower !== 'unknown lecture' && !partial) {
-      matched = allLectures.find(l => l.date === date && l.studentIds.includes(student.id)) ||
-                allLectures.find(l => l.studentIds.includes(student.id)) ||
-                allLectures[0] ||
+    const exact = candidates.filter(l => (!startTime || l.startTime >= startTime) && (!normEndTime || l.endTime <= normEndTime));
+    const partial = candidates.some(l => startTime && normEndTime && l.startTime < normEndTime && l.endTime > startTime && !(l.startTime >= startTime && l.endTime <= normEndTime));
+    const isOffHours = Boolean(startTime && startTime >= '18:00');
+
+    let matched = null;
+    if (exact.length === 1) {
+      matched = exact[0];
+    } else if (exact.length > 1 && singleSubjLower) {
+      matched = exact[0];
+    } else if (exact.length === 0 && !partial && !isOffHours && candidates.length === 1) {
+      matched = candidates[0];
+    }
+
+    if (!matched && singleSubjLower !== 'unknown lecture' && !partial && !isOffHours && candidates.length <= 1) {
+      matched = allLectures.find(l => l.date === date && isStudentInLecture(l)) ||
+                allLectures.find(l => isStudentInLecture(l)) ||
                 null;
     }
 
@@ -801,7 +968,7 @@ app.post('/api/letters', async (req, res) => {
       uploadId,
       documentName,
       matchedSubject: matched?.subject || subject || '',
-      lectureId: matched?.id || 'LEC-101',
+      lectureId: matched?.id || null,
       validation
     }, actor);
 
@@ -814,16 +981,16 @@ app.post('/api/letters', async (req, res) => {
 
 app.post('/api/letters/batch-decision', async (req, res) => {
   try {
-    // Role verification: Students must NEVER approve or reject attendance letters
+    // Role verification: Only COORDINATOR or ADMIN may approve or reject attendance letters
     const callerRole = getCallerRole(req);
-    if (callerRole === 'STUDENT') {
+    if (callerRole === ROLES.STUDENT || callerRole === ROLES.TEACHER || (callerRole && ![ROLES.COORDINATOR, ROLES.ADMIN].includes(callerRole))) {
       return res.status(403).json({
-        error: 'Access denied: Students are not permitted to approve or reject attendance letters.',
+        error: `Access denied: ${callerRole === ROLES.TEACHER ? 'Teachers' : 'Students'} are not permitted to approve or reject attendance letters.`,
         code: 'FORBIDDEN'
       });
     }
 
-    const { letterIds, decision, actor = 'Attendance Coordinator' } = req.body || {};
+    const { letterIds, decision, actor = 'Attendance Coordinator', reason = '', rejectionReason = '', allowManualApproval = false } = req.body || {};
     if (!['approve', 'reject'].includes(decision)) {
       return res.status(400).json({ error: 'Choose approve or reject.' });
     }
@@ -835,7 +1002,8 @@ app.post('/api/letters/batch-decision', async (req, res) => {
       letterIds,
       decision,
       actor,
-      allowManualApproval: true
+      reason: reason || rejectionReason || '',
+      allowManualApproval: Boolean(allowManualApproval)
     });
 
     const approvedCount = result.approved.length;
@@ -858,16 +1026,16 @@ app.post('/api/letters/batch-decision', async (req, res) => {
 
 app.post('/api/letters/:id/decision', async (req, res) => {
   try {
-    // Role verification: Students must NEVER approve or reject attendance letters
+    // Role verification: Only COORDINATOR or ADMIN may approve or reject attendance letters
     const callerRole = getCallerRole(req);
-    if (callerRole === 'STUDENT') {
+    if (callerRole === ROLES.STUDENT || callerRole === ROLES.TEACHER || (callerRole && ![ROLES.COORDINATOR, ROLES.ADMIN].includes(callerRole))) {
       return res.status(403).json({
-        error: 'Access denied: Students are not permitted to approve or reject attendance letters.',
+        error: `Access denied: ${callerRole === ROLES.TEACHER ? 'Teachers' : 'Students'} are not permitted to approve or reject attendance letters.`,
         code: 'FORBIDDEN'
       });
     }
 
-    const { decision, actor = 'Attendance Coordinator' } = req.body || {};
+    const { decision, actor = 'Attendance Coordinator', reason = '', rejectionReason = '', allowManualApproval = false } = req.body || {};
     if (!['approve', 'reject'].includes(decision)) {
       return res.status(400).json({ error: 'Choose approve or reject.' });
     }
@@ -876,7 +1044,8 @@ app.post('/api/letters/:id/decision', async (req, res) => {
       letterId: req.params.id,
       decision,
       actor,
-      allowManualApproval: true
+      reason: reason || rejectionReason || '',
+      allowManualApproval: Boolean(allowManualApproval)
     });
 
     res.json({ message: `Letter ${updated.status.toLowerCase()}.`, item: updated });

@@ -451,44 +451,9 @@ export default function StudentPortalView({
     }
   }, []);
 
-  // Unified Letters Dataset (combines live student letters with semester baseline so Dashboard, My Attendance, and Letter Requests match 100%)
+  // Unified Letters Dataset (authoritative persisted letters for the current student)
   const unifiedStudentLetters = useMemo(() => {
-    const live = Array.isArray(studentLetters) ? studentLetters : [];
-    const baseline = [
-      {
-        id: 'LTR-SEM-01',
-        reference: 'REF-2026-MED-042',
-        title: 'Medical Leave',
-        reason: 'Medical Leave',
-        date: '2026-10-05',
-        displayDate: '5 Oct 2026',
-        subject: 'Embedded Systems',
-        startTime: '09:00',
-        endTime: '10:00',
-        documentName: 'Medical_Certificate_DJSCE.pdf',
-        status: 'Approved'
-      },
-      {
-        id: 'LTR-SEM-02',
-        reference: 'REF-2026-EVT-019',
-        title: 'Event Participation',
-        reason: 'Event Participation',
-        date: '2026-09-12',
-        displayDate: '12 Sep 2026',
-        subject: 'Digital Signal Processing',
-        startTime: '10:00',
-        endTime: '12:00',
-        documentName: 'ACM_Event_Participation.pdf',
-        status: 'Pending'
-      }
-    ];
-    const combined = [...live];
-    for (const b of baseline) {
-      if (!combined.some(item => item.reference === b.reference || item.id === b.id)) {
-        combined.push(b);
-      }
-    }
-    return combined;
+    return Array.isArray(studentLetters) ? [...studentLetters] : [];
   }, [studentLetters]);
 
   const unifiedApprovedLetters = useMemo(
@@ -496,7 +461,7 @@ export default function StudentPortalView({
     [unifiedStudentLetters]
   );
 
-  // Unified Semester Lecture & Attendance Log (148 baseline sessions: 116 Present, 32 Absent + any live session records)
+  // Authoritative Student Lecture & Attendance Log (100% real persisted records and enrolled sessions)
   const unifiedLectureRecords = useMemo(() => {
     const defaultClassGroup = currentStudent?.classGroup || 'CE — Year 3 / A';
     const liveItems = [];
@@ -504,167 +469,73 @@ export default function StudentPortalView({
 
     for (let i = 0; i < (studentAttendanceRecords || []).length; i++) {
       const r = studentAttendanceRecords[i];
-      const lec = (data?.lectures || []).find(l => l.id === r.lectureId);
+      const lec = r.lecture || (data?.lectures || []).find(l => l.id === r.lectureId) || (studentEnrolledLectures || []).find(l => l.id === r.lectureId);
       const id = lec?.id || r.lectureId || r.id || `LIVE-ATT-${i}`;
       if (seenLectureIds.has(id)) continue;
       seenLectureIds.add(id);
       const subj = lec?.subject || r.subject || 'Database Systems';
       const dateStr = lec?.date || r.date || '2026-10-28';
-      const matchedApproved = unifiedApprovedLetters.find(
+      const matchedLetters = unifiedStudentLetters.filter(
         l => (l.lectureId && l.lectureId === id) || (l.date === dateStr && (!l.subject || l.subject === subj || l.matchedSubject === subj))
       );
+      const matchedApproved = matchedLetters.find(l => l.status === 'Approved') || null;
+      const matchedRejected = matchedLetters.find(l => l.status === 'Rejected') || null;
+      const matchedPending = matchedLetters.find(l => l.status === 'Pending') || null;
+
       liveItems.push({
         id,
         date: dateStr,
         displayDate: dateStr,
-        startTime: lec?.startTime || '10:00',
-        endTime: lec?.endTime || '11:00',
+        startTime: lec?.startTime || r.startTime || '10:00',
+        endTime: lec?.endTime || r.endTime || '11:00',
         subject: subj,
         type: subj.includes('Lab') ? 'Practical' : subj.includes('Tutorial') ? 'Tutorial' : 'Lecture',
         className: lec?.className || defaultClassGroup,
         faculty: lec?.faculty || 'Prof. Sharma',
         room: lec?.room || 'LH-201',
-        status: r.status || 'Present',
-        approvedLetter: matchedApproved || null,
+        status: r.status || (matchedApproved ? 'Present' : 'Scheduled'),
+        approvedLetter: matchedApproved,
+        rejectedLetter: matchedRejected,
+        pendingLetter: matchedPending,
         isOct2026: String(dateStr).startsWith('2026-10') || String(dateStr).includes('Oct 2026')
       });
     }
 
-    const topFiveBaseline = [
-      {
-        id: 'SEM-LEC-001',
-        date: '2026-10-13',
-        displayDate: '13 Oct 2026',
-        startTime: '10:00',
-        endTime: '11:00',
-        subject: 'Digital Signal Processing',
-        type: 'Lecture',
-        className: defaultClassGroup,
-        faculty: 'Prof. Sen',
-        room: 'LH-201',
-        status: 'Present',
-        approvedLetter: null,
-        isOct2026: true
-      },
-      {
-        id: 'SEM-LEC-002',
-        date: '2026-10-10',
-        displayDate: '10 Oct 2026',
-        startTime: '11:00',
-        endTime: '12:00',
-        subject: 'Computer Networks',
-        type: 'Lecture',
-        className: defaultClassGroup,
-        faculty: 'Prof. Mehta',
-        room: 'LB-304',
-        status: 'Present',
-        approvedLetter: null,
-        isOct2026: true
-      },
-      {
-        id: 'SEM-LEC-003',
-        date: '2026-10-08',
-        displayDate: '8 Oct 2026',
-        startTime: '14:00',
-        endTime: '15:00',
-        subject: 'VLSI Design',
-        type: 'Tutorial',
-        className: defaultClassGroup,
-        faculty: 'Prof. Kulkarni',
-        room: 'LH-105',
-        status: 'Absent',
-        approvedLetter: null,
-        isOct2026: true
-      },
-      {
-        id: 'SEM-LEC-004',
-        date: '2026-10-06',
-        displayDate: '6 Oct 2026',
-        startTime: '09:00',
-        endTime: '10:00',
-        subject: 'Embedded Systems',
-        type: 'Lecture',
-        className: defaultClassGroup,
-        faculty: 'Prof. Sharma',
-        room: 'LH-202',
-        status: 'Present',
-        approvedLetter: unifiedApprovedLetters.find(l => l.reference === 'REF-2026-MED-042') || null,
-        isOct2026: true
-      },
-      {
-        id: 'SEM-LEC-005',
-        date: '2026-10-03',
-        displayDate: '3 Oct 2026',
-        startTime: '11:00',
-        endTime: '12:00',
-        subject: 'Machine Learning',
-        type: 'Lecture',
-        className: defaultClassGroup,
-        faculty: 'Prof. Deshmukh',
-        room: 'LB-301',
-        status: 'Present',
-        approvedLetter: null,
-        isOct2026: true
-      }
-    ];
+    for (const lec of (studentEnrolledLectures || [])) {
+      if (!lec || seenLectureIds.has(lec.id)) continue;
+      seenLectureIds.add(lec.id);
+      const subj = lec.subject || 'Lecture';
+      const dateStr = lec.date || '';
+      const matchedLetters = unifiedStudentLetters.filter(
+        l => (l.lectureId && l.lectureId === lec.id) || (l.date === dateStr && (!l.subject || l.subject === subj || l.matchedSubject === subj))
+      );
+      const matchedApproved = matchedLetters.find(l => l.status === 'Approved') || null;
+      const matchedRejected = matchedLetters.find(l => l.status === 'Rejected') || null;
+      const matchedPending = matchedLetters.find(l => l.status === 'Pending') || null;
 
-    const subjectsPool = [
-      { subject: 'Digital Signal Processing', type: 'Lecture', startTime: '10:00', endTime: '11:00', faculty: 'Prof. Sen', room: 'LH-201' },
-      { subject: 'Computer Networks', type: 'Lecture', startTime: '11:00', endTime: '12:00', faculty: 'Prof. Mehta', room: 'LB-304' },
-      { subject: 'VLSI Design', type: 'Tutorial', startTime: '14:00', endTime: '15:00', faculty: 'Prof. Kulkarni', room: 'LH-105' },
-      { subject: 'Embedded Systems', type: 'Lecture', startTime: '09:00', endTime: '10:00', faculty: 'Prof. Sharma', room: 'LH-202' },
-      { subject: 'Machine Learning', type: 'Lecture', startTime: '15:00', endTime: '16:00', faculty: 'Prof. Deshmukh', room: 'LB-301' },
-      { subject: 'Applied Mathematics', type: 'Lecture', startTime: '14:00', endTime: '15:00', faculty: 'Dr. K. R. Sharma', room: 'Auditorium A' },
-      { subject: 'Database Systems', type: 'Lecture', startTime: '10:00', endTime: '11:00', faculty: 'Prof. Sharma', room: 'LH-201' }
-    ];
-
-    const restBaseline = [];
-    let octAbsentRemaining = 4;
-    let prevAbsentRemaining = 27;
-
-    for (let idx = 0; idx < 143; idx++) {
-      const course = subjectsPool[idx % subjectsPool.length];
-      const isOct = idx < 25;
-      let status = 'Present';
-      if (isOct) {
-        if (octAbsentRemaining > 0 && idx % 6 === 5) {
-          status = 'Absent';
-          octAbsentRemaining--;
-        }
-      } else {
-        if (prevAbsentRemaining > 0 && (idx % 4 === 3 || idx >= 143 - prevAbsentRemaining)) {
-          status = 'Absent';
-          prevAbsentRemaining--;
-        }
-      }
-
-      const monthNum = isOct ? 10 : (9 - Math.floor((idx - 25) / 40));
-      const dayNum = Math.max(1, 28 - (idx % 26));
-      const isoDate = `2026-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-      const monthLabel = monthNum === 10 ? 'Oct' : monthNum === 9 ? 'Sep' : monthNum === 8 ? 'Aug' : 'Jul';
-
-      restBaseline.push({
-        id: `SEM-LEC-${String(idx + 6).padStart(3, '0')}`,
-        date: isoDate,
-        displayDate: `${dayNum} ${monthLabel} 2026`,
-        startTime: course.startTime,
-        endTime: course.endTime,
-        subject: course.subject,
-        type: course.type,
-        className: defaultClassGroup,
-        faculty: course.faculty,
-        room: course.room,
-        status,
-        approvedLetter: null,
-        isOct2026: isOct
+      liveItems.push({
+        id: lec.id,
+        date: dateStr,
+        displayDate: dateStr,
+        startTime: lec.startTime || '10:00',
+        endTime: lec.endTime || '11:00',
+        subject: subj,
+        type: subj.includes('Lab') ? 'Practical' : subj.includes('Tutorial') ? 'Tutorial' : 'Lecture',
+        className: lec.className || defaultClassGroup,
+        faculty: lec.faculty || 'Prof. Sharma',
+        room: lec.room || 'LH-201',
+        status: matchedApproved ? 'Present' : 'Scheduled',
+        approvedLetter: matchedApproved,
+        rejectedLetter: matchedRejected,
+        pendingLetter: matchedPending,
+        isOct2026: String(dateStr).startsWith('2026-10') || String(dateStr).includes('Oct 2026')
       });
     }
 
-    return [...liveItems, ...topFiveBaseline, ...restBaseline];
-  }, [studentAttendanceRecords, data?.lectures, currentStudent?.classGroup, unifiedApprovedLetters]);
+    return liveItems;
+  }, [studentAttendanceRecords, studentEnrolledLectures, data?.lectures, currentStudent?.classGroup, unifiedStudentLetters]);
 
   // Unified Metric Values (shared identically between Dashboard and My Attendance)
-  const displayHeld = unifiedLectureRecords.length;
   const displayAttended = useMemo(
     () => unifiedLectureRecords.filter(r => r.status === 'Present').length,
     [unifiedLectureRecords]
@@ -677,11 +548,12 @@ export default function StudentPortalView({
     () => unifiedLectureRecords.filter(r => r.status === 'Scheduled').length,
     [unifiedLectureRecords]
   );
+  const displayHeld = displayAttended + displayAbsent;
   const displayOverallPct = useMemo(() => {
-    if (displayAttended === 116 && displayHeld === 148) return '78.5';
-    const denom = Math.max(1, displayAttended + displayAbsent);
+    const denom = displayAttended + displayAbsent;
+    if (denom === 0) return '100.0';
     return ((displayAttended / denom) * 100).toFixed(1);
-  }, [displayAttended, displayAbsent, displayHeld]);
+  }, [displayAttended, displayAbsent]);
 
   const displayMonthPresent = useMemo(
     () => unifiedLectureRecords.filter(r => r.isOct2026 && r.status === 'Present').length,
@@ -692,7 +564,8 @@ export default function StudentPortalView({
     [unifiedLectureRecords]
   );
   const displayMonthPct = useMemo(() => {
-    const denom = Math.max(1, displayMonthPresent + displayMonthAbsent);
+    const denom = displayMonthPresent + displayMonthAbsent;
+    if (denom === 0) return '100.0';
     return ((displayMonthPresent / denom) * 100).toFixed(1);
   }, [displayMonthPresent, displayMonthAbsent]);
 
@@ -1391,14 +1264,18 @@ export default function StudentPortalView({
                     </button>
 
                     <div className="student-letters-list">
-                      {recentLettersList.map(lt => (
+                      {recentLettersList.length === 0 ? (
+                        <div style={{ fontSize: '13px', color: '#64748b', padding: '10px 0' }}>
+                          No attendance letters submitted yet.
+                        </div>
+                      ) : recentLettersList.map(lt => (
                         <div className="student-letter-item-box" key={lt.id}>
                           <div>
                             <div className="student-letter-item-title">{lt.title}</div>
                             <div className="student-letter-item-date">{lt.date}</div>
                           </div>
                           <div>
-                            <span className={`student-status-badge ${lt.status === 'Approved' ? 'approved' : 'review'}`}>
+                            <span className={`student-status-badge ${lt.status === 'Approved' ? 'approved' : lt.status === 'Rejected' ? 'rejected' : 'review'}`}>
                               {lt.status}
                             </span>
                           </div>
@@ -1606,7 +1483,7 @@ export default function StudentPortalView({
                           className={`att-filter-pill ${studentLectureFilter === 'all' ? 'active' : ''}`}
                           onClick={() => { setStudentLectureFilter('all'); setStudentLecturePage(1); }}
                         >
-                          All ({displayHeld})
+                          All ({unifiedLectureRecords.length})
                         </button>
                         <button
                           type="button"
@@ -1676,6 +1553,8 @@ export default function StudentPortalView({
                           paginatedUnifiedLectures.map(lec => {
                             const status = lec.status || 'Scheduled';
                             const approvedLetter = lec.approvedLetter || unifiedApprovedLetters.find(l => l.lectureId === lec.id || (l.date === lec.date && l.subject === lec.subject));
+                            const rejectedLetter = lec.rejectedLetter || unifiedStudentLetters.find(l => l.status === 'Rejected' && (l.lectureId === lec.id || (l.date === lec.date && l.subject === lec.subject)));
+                            const pendingLetter = lec.pendingLetter || unifiedStudentLetters.find(l => l.status === 'Pending' && (l.lectureId === lec.id || (l.date === lec.date && l.subject === lec.subject)));
 
                             return (
                               <tr key={lec.id}>
@@ -1697,7 +1576,15 @@ export default function StudentPortalView({
                                 <td>
                                   {approvedLetter ? (
                                     <span className="att-exemption-pill">
-                                      ✓ Exempted (File: {approvedLetter.documentName || approvedLetter.reference || 'LNH_20261014_01'})
+                                      ✓ Exempted (File: {approvedLetter.documentName || approvedLetter.reference || approvedLetter.id})
+                                    </span>
+                                  ) : rejectedLetter ? (
+                                    <span className="att-status-pill absent" style={{ fontSize: '11.5px' }}>
+                                      ✗ Rejected ({rejectedLetter.rejectionReason || rejectedLetter.reference || rejectedLetter.id})
+                                    </span>
+                                  ) : pendingLetter ? (
+                                    <span className="att-status-pill scheduled" style={{ fontSize: '11.5px' }}>
+                                      ⏳ In Review ({pendingLetter.reference || pendingLetter.id})
                                     </span>
                                   ) : (
                                     <span className="att-no-exemption">—</span>

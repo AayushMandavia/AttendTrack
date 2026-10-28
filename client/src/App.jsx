@@ -255,6 +255,9 @@ export default function App() {
       if (!lectureId && d.lectures[0]) setLectureId(d.lectures[0].id);
       if (!adminCorrectionLectureId && d.lectures[0]) setAdminCorrectionLectureId(d.lectures[0].id);
       if (!studentViewId && d.students[0]) setStudentViewId(d.students[0].id);
+      if (currentUser?.role === 'STUDENT') {
+        await refreshStudentData(token);
+      }
       return d;
     } catch (err) {
       if (err?.message === 'Session expired') throw err;
@@ -455,7 +458,7 @@ export default function App() {
               uploadId: uploadId || undefined,
               documentName: originalName || undefined,
               date: ext.date || '2026-10-14',
-              subject: ext.subject || 'Artificial Intelligence',
+              subject: ext.subject || 'Database Systems',
               startTime: ext.startTime || '10:00',
               endTime: ext.endTime || '11:00',
               reference: ext.reference || 'OFFICIAL-DOC',
@@ -590,7 +593,7 @@ export default function App() {
         uploadId: multiDoc.uploadId || undefined,
         documentName: multiDoc.documentName || 'Manual Entry',
         date: multiDoc.date || '2026-10-14',
-        subject: multiDoc.subject || 'Artificial Intelligence',
+        subject: multiDoc.subject || 'Database Systems',
         startTime: multiDoc.startTime || '10:00',
         endTime: multiDoc.endTime || '11:00',
         reference: multiDoc.reference || 'REF-MANUAL',
@@ -667,16 +670,33 @@ export default function App() {
     ? studentPersonalData.letters
     : (currentStudent ? data.letters.filter(l => l.studentId === currentStudent.id || l.sapId === currentStudent.sapId) : []);
 
-  const studentEnrolledLectures = currentStudent
-    ? data.lectures.filter(l => l.studentIds?.includes(currentStudent.id) || (currentStudent.classGroup && l.className === currentStudent.classGroup))
-    : [];
+  const studentEnrolledLectures = useMemo(() => {
+    if (!currentStudent) return [];
+    const recordLectureIds = new Set(studentAttendanceRecords.map(a => a.lectureId).filter(Boolean));
+    const letterLectureIds = new Set(studentLetters.map(l => l.lectureId).filter(Boolean));
+    const matchedLectures = data.lectures.filter(l =>
+      l.studentIds?.includes(currentStudent.id) ||
+      (currentStudent.classGroup && l.className === currentStudent.classGroup) ||
+      recordLectureIds.has(l.id) ||
+      letterLectureIds.has(l.id)
+    );
+    const seenIds = new Set(matchedLectures.map(l => l.id));
+    for (const rec of studentAttendanceRecords) {
+      if (rec.lecture && rec.lecture.id && !seenIds.has(rec.lecture.id)) {
+        matchedLectures.unshift(rec.lecture);
+        seenIds.add(rec.lecture.id);
+      }
+    }
+    return matchedLectures;
+  }, [currentStudent, data.lectures, studentAttendanceRecords, studentLetters]);
 
-  const studentTotalLectures = Math.max(studentEnrolledLectures.length, studentAttendanceRecords.length);
   const studentPresentCount = studentAttendanceRecords.filter(a => a.status === 'Present').length;
   const studentAbsentCount = studentAttendanceRecords.filter(a => a.status === 'Absent').length;
+  const studentConductedCount = studentPresentCount + studentAbsentCount;
+  const studentTotalLectures = studentConductedCount > 0 ? studentConductedCount : studentEnrolledLectures.length;
   const studentApprovedLetters = studentLetters.filter(l => l.status === 'Approved');
-  const studentAttendancePct = studentTotalLectures > 0
-    ? ((studentPresentCount / studentTotalLectures) * 100).toFixed(1)
+  const studentAttendancePct = studentConductedCount > 0
+    ? ((studentPresentCount / studentConductedCount) * 100).toFixed(1)
     : '100.0';
 
   // Student Portal: Filtered & Paginated Letters (max 5-8 records per page)
@@ -946,12 +966,6 @@ export default function App() {
           <h1>AttendTrack</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {data.isPostgresConnected ? (
-            <span className="badge-live" title="Authoritative PostgreSQL (port 5432) connected">● PostgreSQL Connected</span>
-          ) : (
-            <span className="badge-docx" style={{ background: '#fee2e2', color: '#991b1b', borderColor: '#fca5a5' }} title="PostgreSQL disconnected. Showing fallback store.">⚠ Fallback Mode (DB Disconnected)</span>
-          )}
-
           {currentUser ? (
             <div className="topbar-user-badge">
               <span className="user-avatar-circle">
@@ -1200,7 +1214,6 @@ export default function App() {
                   <h3>Document Processing & Automated Queue Intake</h3>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge-live">PostgreSQL Connected</span>
                   <span className="badge-docx">{multiDoc.extractionMethod || 'Document Extraction Engine'}</span>
                   <span className="pill teal">{multiDoc.fileTypeName || 'Attendance Document'}</span>
                 </div>

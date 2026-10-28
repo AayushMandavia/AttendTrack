@@ -998,13 +998,6 @@ Verification Status: Approved by Convener.
                     <IconLetterProcessing size={20} />
                     <h2 className="coord-card-heading">Official Letter Intake &amp; Document Processing</h2>
                   </div>
-                  <div className="coord-card-badge-group">
-                    {data.isPostgresConnected ? (
-                      <span className="coord-badge-live">● PostgreSQL Connected</span>
-                    ) : (
-                      <span className="coord-badge-warn">⚠ Fallback Mode (DB Disconnected)</span>
-                    )}
-                  </div>
                 </div>
 
                 <p className="coord-card-desc">
