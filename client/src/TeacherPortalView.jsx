@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import TimetableSection from './TimetableSection.jsx';
 import TeacherTimetableSection from './TeacherTimetableSection.jsx';
 
@@ -295,11 +295,27 @@ export default function TeacherPortalView({
   // Navigation tabs: 'attendance' (default active), 'dashboard', 'timetable', 'letters', 'notifications'
   const [teacherNavTab, setTeacherNavTab] = useState('attendance');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const profileWrapperRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [showAllLogsModal, setShowAllLogsModal] = useState(false);
   const [lateStudents, setLateStudents] = useState({});
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (profileWrapperRef.current && !profileWrapperRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+    }
+    if (showUserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
 
   const todayStr = useMemo(() => getLocalDateStr(), []);
   const currentTimeStr = useMemo(() => getLocalTimeStr(), []);
@@ -771,56 +787,55 @@ export default function TeacherPortalView({
   return (
     <div className="teacher-portal-root">
       {/* =========================================================================
-          Top Navy Bar: AttendTrack Institutional Identity
+          Top Navy Bar: Matching Admin Style (No AttendTrack Text, Admin Profile + Logout)
           ========================================================================= */}
       <nav className="teacher-topbar-nav" aria-label="Teacher Portal Header">
-        <div className="teacher-topbar-brand">
-          <span className="teacher-brand-title">AttendTrack</span>
+        <div className="teacher-topbar-brand-spacer">
+          {/* Deliberately empty left space matching Admin */}
         </div>
 
         <div className="teacher-topbar-actions">
           {/* Notification Bell */}
           <button
             type="button"
-            className="teacher-notification-btn"
-            title="Notifications"
+            className="admin-notif-btn"
+            title="Notifications (3 unread)"
             onClick={() => setTeacherNavTab('notifications')}
             aria-label="View notifications"
           >
             <IconNotifications size={20} />
-            <span className="teacher-notif-badge">3</span>
+            <span className="admin-notif-badge">3</span>
           </button>
 
-          {/* Teacher Profile Capsule */}
-          <div className="teacher-profile-wrapper">
+          {/* Teacher Profile - Admin Style */}
+          <div className="admin-profile-wrapper" ref={profileWrapperRef}>
             <button
               type="button"
-              className="teacher-user-profile-btn"
+              className="admin-user-btn"
               onClick={() => setShowUserDropdown(prev => !prev)}
               aria-expanded={showUserDropdown}
               aria-haspopup="true"
               title="Teacher Profile"
             >
-              <div className="teacher-avatar-circle">{teacherInitials}</div>
-              <div className="teacher-user-info-text">
-                <span className="teacher-user-fullname">{teacherDisplayName}</span>
-                <span className="teacher-user-dept">{teacherDept}</span>
+              <div className="admin-avatar-circle">{teacherInitials}</div>
+              <div className="admin-user-info-text">
+                <span className="admin-user-fullname">{teacherDisplayName}</span>
+                <span className="admin-user-role">Teacher</span>
               </div>
-              <span className={`teacher-user-chevron ${showUserDropdown ? 'open' : ''}`} aria-hidden="true">▼</span>
+              <span className={`admin-user-chevron ${showUserDropdown ? 'open' : ''}`} aria-hidden="true">▼</span>
             </button>
 
             {showUserDropdown && (
-              <div className="teacher-profile-dropdown" role="menu">
-                <div className="teacher-dropdown-header">
-                  <div className="teacher-dropdown-name">{teacherDisplayName}</div>
-                  <div className="teacher-dropdown-dept">{teacherDept}</div>
-                  <div className="teacher-dropdown-role">Role: <b>Teacher</b></div>
+              <div className="admin-profile-dropdown" role="menu">
+                <div className="admin-dropdown-header">
+                  <div className="admin-dropdown-name">{teacherDisplayName}</div>
+                  <div className="admin-dropdown-dept">{teacherDept}</div>
+                  <div className="admin-dropdown-role">Role: <b>Teacher</b></div>
                 </div>
-
 
                 <button
                   type="button"
-                  className="teacher-dropdown-item"
+                  className="admin-dropdown-item"
                   onClick={() => {
                     setTeacherNavTab('attendance');
                     setShowUserDropdown(false);
@@ -832,7 +847,7 @@ export default function TeacherPortalView({
 
                 <button
                   type="button"
-                  className="teacher-dropdown-item"
+                  className="admin-dropdown-item"
                   onClick={() => {
                     setTeacherNavTab('timetable');
                     setShowUserDropdown(false);
@@ -844,18 +859,41 @@ export default function TeacherPortalView({
 
                 <button
                   type="button"
-                  className="teacher-dropdown-item logout"
+                  className="admin-dropdown-item"
+                  onClick={() => {
+                    setTeacherNavTab('letters');
+                    setShowUserDropdown(false);
+                  }}
+                  role="menuitem"
+                >
+                  <IconLetters size={16} /> Letter Requests
+                </button>
+
+                <button
+                  type="button"
+                  className="admin-dropdown-item logout"
                   onClick={() => {
                     setShowUserDropdown(false);
                     handleLogout();
                   }}
                   role="menuitem"
                 >
-                  <IconLogout size={16} /> Sign Out
+                  <IconLogout size={16} /> Sign Out of AttendTrack
                 </button>
               </div>
             )}
           </div>
+
+          {/* Explicit Logout Button in Navy Bar matching Admin */}
+          <button
+            type="button"
+            className="admin-navbar-logout-btn"
+            onClick={handleLogout}
+            title="Sign out of AttendTrack"
+          >
+            <IconLogout size={16} />
+            <span>Logout</span>
+          </button>
         </div>
       </nav>
 
@@ -924,7 +962,7 @@ export default function TeacherPortalView({
 
         {/* Main Workspace */}
         <main className="teacher-main-workspace">
-          {message && (
+          {message && !message.includes('PostgreSQL is disconnected') && (
             <div className={`notice ${isError ? 'error' : ''}`} style={{ marginBottom: '20px' }}>
               <span>{message}</span>
               <button className="quiet" onClick={() => setMessage && setMessage('')}>Dismiss</button>

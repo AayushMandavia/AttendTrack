@@ -39,3 +39,7 @@ coverage/
 # Scratch scripts and temporary prompt artifacts
 scratch/
 prompt_*.txt
+
+.vercel
+.env*
+~$*

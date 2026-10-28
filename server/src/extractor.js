@@ -1,4 +1,18 @@
-import { PDFParse } from 'pdf-parse';
+// Polyfill browser globals required by pdfjs-dist in headless / serverless Node.js
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  globalThis.DOMMatrix = class DOMMatrix {
+    constructor() {
+      this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0;
+    }
+  };
+}
+if (typeof globalThis.Path2D === 'undefined') {
+  globalThis.Path2D = class Path2D {};
+}
+if (typeof globalThis.ImageData === 'undefined') {
+  globalThis.ImageData = class ImageData {};
+}
+
 import { ocrQueue } from './ocr-queue.js';
 
 const MONTH_MAP = {
@@ -728,6 +742,7 @@ export function extractFieldsFromText(text = '', options = {}) {
  */
 export async function parsePdfDocument(buffer, options = {}) {
   try {
+    const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: buffer });
     const result = await parser.getText();
     const rawText = result?.text || '';

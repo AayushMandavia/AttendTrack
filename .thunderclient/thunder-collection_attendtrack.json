@@ -1,0 +1,427 @@
+{
+  "client": "Thunder Client",
+  "collectionName": "AttendTrack API Complete Suite",
+  "dateExported": "2026-10-27T11:30:00.000Z",
+  "version": "1.1",
+  "folders": [
+    { "_id": "fld_01", "name": "01 - Health and Connectivity" },
+    { "_id": "fld_02", "name": "02 - Authentication and Sessions" },
+    { "_id": "fld_03", "name": "03 - Admin and Student Management" },
+    { "_id": "fld_04", "name": "04 - Timetable and Lecture Sessions" },
+    { "_id": "fld_05", "name": "05 - Regular Attendance" },
+    { "_id": "fld_06", "name": "06 - Student Self-Service" },
+    { "_id": "fld_07", "name": "07 - Single-Student Letter Workflow" },
+    { "_id": "fld_08", "name": "08 - Multi-Student Letter Workflow" },
+    { "_id": "fld_09", "name": "09 - Coordinator Review and Approval" },
+    { "_id": "fld_10", "name": "10 - Post-Deadline Corrections" },
+    { "_id": "fld_11", "name": "11 - Audit Logs and Metrics" },
+    { "_id": "fld_12", "name": "12 - Upload Validation and Error Handling" },
+    { "_id": "fld_13", "name": "13 - Security and Negative Tests" },
+    { "_id": "fld_14", "name": "14 - Data Integrity and Regression" }
+  ],
+  "requests": [
+    {
+      "_id": "req_01_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_01",
+      "name": "01.01 Check System Health",
+      "url": "{{baseUrl}}/health",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.isPostgresConnected", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_01_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_01",
+      "name": "01.02 Telemetry Metrics",
+      "url": "{{baseUrl}}/metrics",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" }
+      ]
+    },
+    {
+      "_id": "req_01_03",
+      "colId": "col_attendtrack",
+      "containerId": "fld_01",
+      "name": "01.03 Public Dashboard Summary",
+      "url": "{{baseUrl}}/dashboard",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" }
+      ]
+    },
+    {
+      "_id": "req_02_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.01 Admin Login",
+      "url": "{{baseUrl}}/auth/login",
+      "method": "POST",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"Admin@AttendTrack2026!\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.user.role", "action": "equal", "value": "ADMIN" },
+        { "type": "set-env-var", "custom": "json.token", "action": "setto", "value": "adminToken" }
+      ]
+    },
+    {
+      "_id": "req_02_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.02 Teacher Login",
+      "url": "{{baseUrl}}/auth/login",
+      "method": "POST",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"username\": \"{{teacherUsername}}\",\n  \"password\": \"Teacher@AttendTrack2026!\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.user.role", "action": "equal", "value": "TEACHER" },
+        { "type": "set-env-var", "custom": "json.token", "action": "setto", "value": "teacherToken" }
+      ]
+    },
+    {
+      "_id": "req_02_03",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.03 Coordinator Login",
+      "url": "{{baseUrl}}/auth/login",
+      "method": "POST",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"username\": \"{{coordinatorUsername}}\",\n  \"password\": \"Coordinator@AttendTrack2026!\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.user.role", "action": "equal", "value": "COORDINATOR" },
+        { "type": "set-env-var", "custom": "json.token", "action": "setto", "value": "coordinatorToken" }
+      ]
+    },
+    {
+      "_id": "req_02_04",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.04 Student Login (SAP ID)",
+      "url": "{{baseUrl}}/auth/login",
+      "method": "POST",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"username\": \"{{studentSapId}}\",\n  \"password\": \"Student@60001240001\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.user.role", "action": "equal", "value": "STUDENT" },
+        { "type": "set-env-var", "custom": "json.token", "action": "setto", "value": "studentToken" }
+      ]
+    },
+    {
+      "_id": "req_02_05",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.05 Invalid Password Login (Negative)",
+      "url": "{{baseUrl}}/auth/login",
+      "method": "POST",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"WrongPassword!\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "401" }
+      ]
+    },
+    {
+      "_id": "req_02_06",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.06 Unknown User Login (Negative)",
+      "url": "{{baseUrl}}/auth/login",
+      "method": "POST",
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"username\": \"nonexistent.user\",\n  \"password\": \"SomePass123\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "401" }
+      ]
+    },
+    {
+      "_id": "req_02_07",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.07 Verify Authenticated Identity",
+      "url": "{{baseUrl}}/auth/me",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{adminToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.user.role", "action": "equal", "value": "ADMIN" }
+      ]
+    },
+    {
+      "_id": "req_02_08",
+      "colId": "col_attendtrack",
+      "containerId": "fld_02",
+      "name": "02.08 Protected Route Without Token (Negative)",
+      "url": "{{baseUrl}}/auth/me",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "401" }
+      ]
+    },
+    {
+      "_id": "req_03_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_03",
+      "name": "03.01 Admin List Students",
+      "url": "{{baseUrl}}/admin/students?page=1&limit=10",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{adminToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.ok", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_03_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_03",
+      "name": "03.02 Student Attempts Admin Access (Forbidden)",
+      "url": "{{baseUrl}}/admin/students",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{studentToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "403" }
+      ]
+    },
+    {
+      "_id": "req_03_03",
+      "colId": "col_attendtrack",
+      "containerId": "fld_03",
+      "name": "03.03 Download Sample Roster Template (CSV)",
+      "url": "{{baseUrl}}/admin/students/sample-template?format=csv",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{adminToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" }
+      ]
+    },
+    {
+      "_id": "req_04_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_04",
+      "name": "04.01 Get Recurring Timetable Slots",
+      "url": "{{baseUrl}}/timetable/slots?classGroup=EXTC — Year 3 / A",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.ok", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_04_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_04",
+      "name": "04.02 Teacher Scoped Timetable",
+      "url": "{{baseUrl}}/teacher/timetable",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{teacherToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.ok", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_04_03",
+      "colId": "col_attendtrack",
+      "containerId": "fld_04",
+      "name": "04.03 Student Attempts Teacher Timetable (Forbidden)",
+      "url": "{{baseUrl}}/teacher/timetable",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{studentToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "403" }
+      ]
+    },
+    {
+      "_id": "req_04_04",
+      "colId": "col_attendtrack",
+      "containerId": "fld_04",
+      "name": "04.04 Cohort Roster Isolation",
+      "url": "{{baseUrl}}/lectures/{{testLectureId}}/roster",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.ok", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_05_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_05",
+      "name": "05.01 Check 24-Hour Edit Window",
+      "url": "{{baseUrl}}/attendance/window/{{testLectureId}}",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.lectureId", "action": "equal", "value": "LEC-101" }
+      ]
+    },
+    {
+      "_id": "req_05_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_05",
+      "name": "05.02 Student Submits Attendance (Forbidden)",
+      "url": "{{baseUrl}}/attendance",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{studentToken}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"lectureId\": \"{{testLectureId}}\",\n  \"entries\": [{ \"studentId\": \"STU-001\", \"status\": \"Present\" }]\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "403" }
+      ]
+    },
+    {
+      "_id": "req_06_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_06",
+      "name": "06.01 Student View Self Profile",
+      "url": "{{baseUrl}}/student/me",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{studentToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.ok", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_06_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_06",
+      "name": "06.02 Student View Self Attendance",
+      "url": "{{baseUrl}}/student/attendance",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{studentToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" }
+      ]
+    },
+    {
+      "_id": "req_06_03",
+      "colId": "col_attendtrack",
+      "containerId": "fld_06",
+      "name": "06.03 Cross-Student Inspection Attack (Strict Privacy 403)",
+      "url": "{{baseUrl}}/student/{{victimStudentSapId}}/attendance",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{studentToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "403" },
+        { "type": "json-query", "custom": "json.code", "action": "equal", "value": "STUDENT_PRIVACY_VIOLATION" }
+      ]
+    },
+    {
+      "_id": "req_10_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_10",
+      "name": "10.01 Admin Late Correction Without Reason (Rejected 400)",
+      "url": "{{baseUrl}}/attendance/admin-correction",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{adminToken}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"lectureId\": \"{{testLectureId}}\",\n  \"statuses\": { \"STU-001\": \"Present\" },\n  \"reason\": \"\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "400" }
+      ]
+    },
+    {
+      "_id": "req_10_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_10",
+      "name": "10.02 Teacher Attempts Late Correction (Forbidden 403)",
+      "url": "{{baseUrl}}/attendance/admin-correction",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{teacherToken}}" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"lectureId\": \"{{testLectureId}}\",\n  \"statuses\": { \"STU-001\": \"Present\" },\n  \"reason\": \"Teacher override attempt\"\n}"
+      },
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "403" }
+      ]
+    },
+    {
+      "_id": "req_11_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_11",
+      "name": "11.01 Admin View Audit Logs",
+      "url": "{{baseUrl}}/admin/audit-logs",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{adminToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "200" },
+        { "type": "json-query", "custom": "json.ok", "action": "equal", "value": "true" }
+      ]
+    },
+    {
+      "_id": "req_11_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_11",
+      "name": "11.02 Student Attempts Audit Logs Access (Forbidden 403)",
+      "url": "{{baseUrl}}/admin/audit-logs",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{studentToken}}" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "403" }
+      ]
+    },
+    {
+      "_id": "req_13_01",
+      "colId": "col_attendtrack",
+      "containerId": "fld_13",
+      "name": "13.01 Development Header Spoofing Blocked (401/403)",
+      "url": "{{baseUrl}}/admin/students",
+      "method": "GET",
+      "headers": [{ "name": "x-user-role", "value": "Admin" }],
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "401" }
+      ]
+    },
+    {
+      "_id": "req_13_02",
+      "colId": "col_attendtrack",
+      "containerId": "fld_13",
+      "name": "13.02 Unknown API Route (404 Not Found)",
+      "url": "{{baseUrl}}/nonexistent/route",
+      "method": "GET",
+      "tests": [
+        { "type": "res-code", "custom": "", "action": "equal", "value": "404" }
+      ]
+    }
+  ]
+}

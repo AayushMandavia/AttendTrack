@@ -234,7 +234,9 @@ export async function authenticateCredentials(usernameOrSap, password) {
   // 1. Check institutional staff / admin accounts
   const staff = institutionalUsers.find(
     u => u.username.toLowerCase() === identifier.toLowerCase() ||
-         u.email.toLowerCase() === identifier.toLowerCase()
+         u.email.toLowerCase() === identifier.toLowerCase() ||
+         (identifier.toLowerCase() === 'teacher' && u.username === 'teacher.extc') ||
+         (identifier.toLowerCase() === 'coordinator' && u.username === 'coordinator.extc')
   );
 
   if (staff) {

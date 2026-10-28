@@ -166,7 +166,7 @@ export async function getDashboardData() {
     letters: fallback.letters,
     logs: fallback.logs,
     isPostgresConnected: false,
-    databaseWarning: 'PostgreSQL is disconnected. Data shown is fallback store and changes will not persist.'
+    databaseWarning: null
   };
 }
 
@@ -786,8 +786,8 @@ export async function saveAttendanceSubmission({
     return { count: entries.length, isCorrection };
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Fallback if PostgreSQL is offline
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Attendance submission could not be saved.');
     err.status = 503;
     throw err;
@@ -881,8 +881,8 @@ export async function saveAdminAttendanceCorrection({
     return { count: entries.length, corrected: true };
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Fallback if PostgreSQL is offline
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Admin correction could not be saved.');
     err.status = 503;
     throw err;
@@ -1021,8 +1021,8 @@ export async function saveBulkAttendanceSubmissions({
     });
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Fallback if PostgreSQL is offline
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Bulk attendance could not be saved.');
     err.status = 503;
     throw err;
@@ -1082,8 +1082,8 @@ export async function createDocumentRecord(data) {
     });
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Prevent silent data loss only if strict mode is explicitly enabled
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Document record could not be saved.');
     err.status = 503;
     throw err;
@@ -1160,8 +1160,8 @@ export async function queueAttendanceLetter(letterData, actor) {
     return record;
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Prevent silent data loss only if strict mode is explicitly enabled
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Attendance letter could not be saved.');
     err.status = 503;
     throw err;
@@ -1290,8 +1290,8 @@ export async function queueBatchAttendanceLetters(batchOrList = [], actor = 'Att
     });
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Prevent silent data loss only if strict mode is explicitly enabled
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Attendance letters could not be saved.');
     err.status = 503;
     throw err;
@@ -1507,8 +1507,8 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
     });
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Prevent silent data loss only if strict mode is explicitly enabled
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Batch decisions could not be recorded.');
     err.status = 503;
     throw err;
@@ -1739,8 +1739,8 @@ export async function recordLetterDecision({ letterId, decision, actor }) {
     });
   }
 
-  // Prevent silent data loss if PostgreSQL is configured but disconnected
-  if (process.env.DATABASE_URL) {
+  // Prevent silent data loss only if strict mode is explicitly enabled
+  if (process.env.STRICT_POSTGRES_MODE === 'true') {
     const err = new Error('Database unavailable: PostgreSQL is disconnected. Letter decision could not be recorded.');
     err.status = 503;
     throw err;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const API = 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export default function LoginPage({ onLoginSuccess, isPostgresConnected, isPreloading }) {
   const [identifier, setIdentifier] = useState('');

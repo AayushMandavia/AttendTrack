@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-const API = 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -242,33 +242,6 @@ export default function TeacherTimetableSection({ authToken = '', currentUser = 
 
         {/* Multi-Class Legend and Week Navigator */}
         <div className="timetable-filters-row">
-          {/* Assigned Classes Chips */}
-          <div className="teacher-classes-chips-group">
-            <span className="teacher-classes-label">Teaching Cohorts:</span>
-            {distinctClasses.length > 0 ? (
-              distinctClasses.map(c => {
-                const badge = getSubjectBadge('', c);
-                return (
-                  <span
-                    key={c}
-                    className="teacher-class-pill-badge"
-                    style={{
-                      backgroundColor: badge.classPillBg,
-                      borderColor: badge.classBorder,
-                      color: badge.classText
-                    }}
-                  >
-                    {c}
-                  </span>
-                );
-              })
-            ) : (
-              <span className="teacher-class-pill-badge neutral">
-                {teacherInfo?.department || 'Assigned Faculty'}
-              </span>
-            )}
-          </div>
-
           {/* Week Selector */}
           <div className="timetable-week-navigator">
             <button
@@ -414,10 +387,6 @@ export default function TeacherTimetableSection({ authToken = '', currentUser = 
                                   <div
                                     key={slot.id || `${slotKey}_${sIdx}`}
                                     className="tt-card professor-slot-card"
-                                    style={{
-                                      backgroundColor: badgeInfo.classBg,
-                                      borderLeftColor: badgeInfo.classBorder
-                                    }}
                                   >
                                     <div className="tt-card-head">
                                       <span className="tt-card-subject" title={slot.subject}>
@@ -445,9 +414,6 @@ export default function TeacherTimetableSection({ authToken = '', currentUser = 
                                           <circle cx="12" cy="10" r="3"/>
                                         </svg>
                                         <span>{slot.room || 'Room Assigned'}</span>
-                                      </div>
-                                      <div className="tt-card-time-span">
-                                        ⏱ {slot.startTime}–{slot.endTime}
                                       </div>
                                     </div>
                                   </div>

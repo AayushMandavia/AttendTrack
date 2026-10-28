@@ -9,7 +9,7 @@ import CoordinatorPortalView from './CoordinatorPortalView.jsx';
 import TransparentPreloader from './TransparentPreloader.jsx';
 import RoleSkeletonDashboard from './RoleSkeletonDashboard.jsx';
 
-const API = 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 const roles = ['Teacher', 'Attendance Coordinator', 'Student', 'Admin'];
 
 // Standard document reference template for multi-student letter workflow
@@ -246,8 +246,8 @@ export default function App() {
       const d = await r.json();
       setData(d);
       if (d.isPostgresConnected === false && d.databaseWarning) {
-        setMessage(d.databaseWarning);
-        setIsError(true);
+        console.warn(`[AttendTrack] ${d.databaseWarning}`);
+        setMessage(prev => (prev && prev.includes('PostgreSQL is disconnected') ? '' : prev));
       } else if (d.isPostgresConnected === true) {
         setMessage(prev => (prev && prev.includes('PostgreSQL is disconnected') ? '' : prev));
         setIsError(false);

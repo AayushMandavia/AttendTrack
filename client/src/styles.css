@@ -456,8 +456,9 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: var(--djsce-saffron);
+  background: var(--djsce-navy-light);
   color: white;
+  box-shadow: 0 2px 6px rgba(0, 56, 119, 0.18);
 }
 
 button:disabled {
@@ -756,7 +757,8 @@ td small {
 }
 
 .proto-btn-primary:hover:not(:disabled) {
-  background: var(--djsce-saffron);
+  background: var(--djsce-navy-light);
+  box-shadow: 0 2px 6px rgba(0, 56, 119, 0.2);
 }
 
 .proto-btn-approve {
@@ -1219,7 +1221,8 @@ td small {
 }
 
 .proto-btn-queue:hover:not(:disabled) {
-  background: var(--djsce-saffron);
+  background: var(--djsce-navy-light);
+  box-shadow: 0 2px 6px rgba(0, 56, 119, 0.2);
 }
 
 .multi-upload-bar {
@@ -1253,7 +1256,7 @@ td small {
 }
 
 .multi-file-input::file-selector-button:hover {
-  background: var(--djsce-saffron);
+  background: var(--djsce-navy-light);
 }
 
 /* ==========================================================================
@@ -1590,7 +1593,8 @@ td small {
 }
 
 .bulk-action-btn:hover:not(:disabled) {
-  background: var(--djsce-saffron);
+  background: var(--djsce-navy-light);
+  box-shadow: 0 2px 6px rgba(0, 56, 119, 0.2);
 }
 
 .bulk-action-btn:disabled {
@@ -1967,7 +1971,8 @@ td small {
 }
 
 .login-submit-btn:hover:not(:disabled) {
-  background: var(--djsce-saffron);
+  background: var(--djsce-navy-light);
+  box-shadow: 0 4px 14px rgba(0, 56, 119, 0.28);
 }
 
 .login-btn-loading {
@@ -2164,9 +2169,9 @@ td small {
 }
 
 .topbar-logout-btn:hover {
-  background: var(--djsce-saffron);
-  color: #ffffff;
-  border-color: var(--djsce-saffron);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border-color: #fca5a5;
 }
 
 /* ==========================================================================
@@ -3424,15 +3429,21 @@ td small {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.student-navy-btn:hover {
-  background: #0c4a6e;
+.student-navy-btn:hover,
+button.student-navy-btn:hover:not(:disabled) {
+  background: #002d62 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(9, 54, 100, 0.24);
+  transform: translateY(-1px);
 }
 
-.student-navy-btn:active {
-  transform: scale(0.99);
+.student-navy-btn:active,
+button.student-navy-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 2px 6px rgba(9, 54, 100, 0.16);
 }
 
 /* Letter Requests Widget */
@@ -3810,10 +3821,11 @@ td small {
   padding: 5px;
   vertical-align: top;
   height: 68px;
+  background: transparent;
 }
 
 .tt-cell-slot.empty {
-  background: #fafbfc;
+  background: transparent;
   text-align: center;
   vertical-align: middle;
 }
@@ -3823,25 +3835,28 @@ td small {
   font-size: 13px;
 }
 
-/* Pastel Class Card with Bold Subject & Left Border */
+/* Clean Class Card with Transparent Background & Neutral Border */
 .tt-card {
+  background: transparent !important;
   border-radius: 8px;
-  border-left: 4px solid #0284c7;
+  border: 1px solid #e2e8f0 !important;
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 4px;
   min-height: 58px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
   height: 100%;
   box-sizing: border-box;
 }
 
 .tt-card:hover {
+  background: rgba(248, 250, 252, 0.8) !important;
+  border-color: #cbd5e1 !important;
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
 }
 
 .tt-card-head {
@@ -5596,18 +5611,23 @@ td small {
 
 /* Top Navy Navigation Bar */
 .teacher-topbar-nav {
-  background: #073b70;
+  background: #003877;
   color: #ffffff;
   padding: 0 28px;
-  height: 64px;
+  height: 52px;
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(7, 59, 112, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   position: relative;
-  z-index: 50;
+  z-index: 90;
   width: 100%;
   box-sizing: border-box;
+}
+
+.teacher-topbar-brand-spacer {
+  flex: 1;
 }
 
 .teacher-topbar-brand {
@@ -5872,14 +5892,14 @@ td small {
 
 .teacher-dropdown-item:hover,
 button.teacher-dropdown-item:hover:not(:disabled) {
-  background: var(--djsce-saffron) !important;
-  color: #ffffff !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
   font-weight: 600;
 }
 
 .teacher-dropdown-item:hover svg,
 button.teacher-dropdown-item:hover:not(:disabled) svg {
-  stroke: #ffffff !important;
+  stroke: #0f172a !important;
 }
 
 .teacher-dropdown-item.logout {
@@ -5904,7 +5924,7 @@ button.teacher-dropdown-item.logout:hover:not(:disabled) svg {
   display: flex;
   flex: 1;
   width: 100%;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - 52px);
   box-sizing: border-box;
 }
 
@@ -7144,9 +7164,15 @@ button.teacher-dropdown-item.logout:hover:not(:disabled) svg {
 }
 
 .professor-slot-card {
-  padding: 7px 9px;
-  border-radius: 6px;
-  border-left-width: 4px;
+  background: transparent !important;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.professor-slot-card:hover {
+  background: rgba(248, 250, 252, 0.8) !important;
+  border-color: #cbd5e1 !important;
 }
 
 .professor-slot-card .tt-card-head {
@@ -7178,10 +7204,9 @@ button.teacher-dropdown-item.logout:hover:not(:disabled) svg {
   margin: 2px 0;
 }
 
-.professor-slot-card .tt-card-time-span {
-  font-size: 10.5px;
-  color: #64748B;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.professor-slot-card .tt-card-time-span,
+.tt-card-time-span {
+  display: none !important;
 }
 
 .teacher-timetable-empty-card {
@@ -8569,6 +8594,7 @@ body:has(.admin-portal-root) {
   max-width: 100%;
   display: flex;
   flex-direction: column;
+  gap: 16px;
 }
 
 .admin-col-side {
@@ -9100,8 +9126,8 @@ body:has(.admin-portal-root) {
 .admin-quick-actions-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px 18px 14px;
+  border-radius: 12px;
+  padding: 16px 20px;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
 }
 
@@ -9109,7 +9135,7 @@ body:has(.admin-portal-root) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .admin-side-card-title {
@@ -9123,7 +9149,7 @@ body:has(.admin-portal-root) {
 
 .admin-quick-actions-list {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
@@ -9131,13 +9157,13 @@ body:has(.admin-portal-root) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
+  padding: 11px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #ffffff;
   color: #1e293b;
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   width: 100%;
@@ -9147,7 +9173,9 @@ body:has(.admin-portal-root) {
 .admin-portal-root button.admin-quick-action-row:hover:not(:disabled) {
   background: #f8fafc;
   border-color: #cbd5e1;
-  color: #1e293b;
+  color: #003877;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .admin-quick-action-left {
@@ -9194,14 +9222,31 @@ body:has(.admin-portal-root) {
   font-size: 11.5px;
 }
 
-.admin-activity-table th {
-  padding: 8px 5px;
+.admin-activity-table thead tr {
+  background: #f8fafc;
+}
+
+.admin-activity-table th,
+.admin-activity-table thead th {
+  background: #f8fafc !important;
+  padding: 9px 6px;
   text-align: left;
   font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: #475569 !important;
+  border-bottom: 1.5px solid #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   white-space: nowrap;
+}
+
+.admin-activity-table tbody tr {
+  background: #ffffff;
+  transition: background-color 0.15s ease;
+}
+
+.admin-activity-table tbody tr:hover td {
+  background: #f8fafc;
 }
 
 /* Column widths sized to fit the 380px side column without horizontal scroll */

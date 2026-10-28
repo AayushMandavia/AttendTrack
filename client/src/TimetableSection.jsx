@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-const API = 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -322,13 +322,7 @@ export default function TimetableSection({ initialClass = 'CE — Year 3 / A', l
 
                         return (
                           <td key={slotKey} className="tt-cell-slot occupied">
-                            <div
-                              className="tt-card"
-                              style={{
-                                backgroundColor: styleInfo.bg,
-                                borderLeftColor: styleInfo.border
-                              }}
-                            >
+                            <div className="tt-card">
                               <div className="tt-card-head">
                                 <span className="tt-card-subject" style={{ color: '#092c4c' }}>
                                   {slot.subject}
@@ -361,15 +355,6 @@ export default function TimetableSection({ initialClass = 'CE — Year 3 / A', l
                 })}
               </tbody>
             </table>
-          </div>
-          <div className="tt-calendar-footer-legend">
-            <span className="tt-legend-title">Subject Palette:</span>
-            <span className="tt-legend-item"><span className="tt-legend-chip" style={{ background: '#0284C7' }}></span>Data &amp; Software</span>
-            <span className="tt-legend-item"><span className="tt-legend-chip" style={{ background: '#EA580C' }}></span>Networks &amp; Telecom</span>
-            <span className="tt-legend-item"><span className="tt-legend-chip" style={{ background: '#16A34A' }}></span>OS &amp; VLSI Design</span>
-            <span className="tt-legend-item"><span className="tt-legend-chip" style={{ background: '#CA8A04' }}></span>Hardware &amp; Architecture</span>
-            <span className="tt-legend-item"><span className="tt-legend-chip" style={{ background: '#9333EA' }}></span>AI &amp; Machine Learning</span>
-            <span className="tt-legend-item"><span className="tt-legend-chip" style={{ background: '#DB2777' }}></span>Practicals &amp; Labs</span>
           </div>
         </div>
       )}

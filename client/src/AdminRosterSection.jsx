@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-const API = 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export default function AdminRosterSection({ onRosterUpdated, authToken, openCreateTrigger, onResetCreateTrigger }) {
   // Helper to attach authoritative Bearer token while retaining fallback x-user-role

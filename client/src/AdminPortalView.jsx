@@ -722,72 +722,6 @@ export default function AdminPortalView({
 
         {/* Main Content Area */}
         <main className="admin-main-content">
-          {/* Quick Actions Panel at the Very Top */}
-          <div className="admin-quick-actions-card" style={{ marginBottom: '20px' }}>
-            <div className="admin-side-card-header">
-              <div className="admin-side-card-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                  <polyline points="10 9 9 9 8 9"/>
-                </svg>
-                <span>Quick Actions</span>
-              </div>
-            </div>
-
-            <div className="admin-quick-actions-list">
-              <button
-                type="button"
-                className="admin-quick-action-row"
-                onClick={() => handleQuickAction('add_student')}
-              >
-                <div className="admin-quick-action-left">
-                  <IconUserPlus size={18} />
-                  <span>Add New Student</span>
-                </div>
-                <IconChevronRight size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="admin-quick-action-row"
-                onClick={() => handleQuickAction('manage_timetable')}
-              >
-                <div className="admin-quick-action-left">
-                  <IconTimetable size={18} />
-                  <span>Manage Timetable</span>
-                </div>
-                <IconChevronRight size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="admin-quick-action-row"
-                onClick={() => handleQuickAction('handle_corrections')}
-              >
-                <div className="admin-quick-action-left">
-                  <IconCorrection size={18} />
-                  <span>Handle Corrections</span>
-                </div>
-                <IconChevronRight size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="admin-quick-action-row"
-                onClick={() => handleQuickAction('view_audit_logs')}
-              >
-                <div className="admin-quick-action-left">
-                  <IconAuditLogs size={18} />
-                  <span>View Audit Logs</span>
-                </div>
-                <IconChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-
           {/* Heading & Upper-Right Date */}
           <div className="admin-page-header">
             <div>
@@ -890,6 +824,72 @@ export default function AdminPortalView({
                     onClick={() => setActiveTab('attendance')}
                   >
                     View Letter Requests →
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Actions Panel directly filling the main column */}
+              <div className="admin-quick-actions-card">
+                <div className="admin-side-card-header">
+                  <div className="admin-side-card-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                      <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <span>Quick Actions</span>
+                  </div>
+                </div>
+
+                <div className="admin-quick-actions-list">
+                  <button
+                    type="button"
+                    className="admin-quick-action-row"
+                    onClick={() => handleQuickAction('add_student')}
+                  >
+                    <div className="admin-quick-action-left">
+                      <IconUserPlus size={18} />
+                      <span>Add New Student</span>
+                    </div>
+                    <IconChevronRight size={16} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="admin-quick-action-row"
+                    onClick={() => handleQuickAction('manage_timetable')}
+                  >
+                    <div className="admin-quick-action-left">
+                      <IconTimetable size={18} />
+                      <span>Manage Timetable</span>
+                    </div>
+                    <IconChevronRight size={16} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="admin-quick-action-row"
+                    onClick={() => handleQuickAction('handle_corrections')}
+                  >
+                    <div className="admin-quick-action-left">
+                      <IconCorrection size={18} />
+                      <span>Handle Corrections</span>
+                    </div>
+                    <IconChevronRight size={16} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="admin-quick-action-row"
+                    onClick={() => handleQuickAction('view_audit_logs')}
+                  >
+                    <div className="admin-quick-action-left">
+                      <IconAuditLogs size={18} />
+                      <span>View Audit Logs</span>
+                    </div>
+                    <IconChevronRight size={16} />
                   </button>
                 </div>
               </div>
