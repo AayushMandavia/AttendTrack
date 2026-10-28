@@ -11039,8 +11039,8 @@ body:has(.admin-portal-root) {
 
 .preloader-crest-stage {
   position: relative;
-  width: 170px;
-  height: 150px;
+  width: 180px;
+  height: 165px;
   display: flex;
   align-items: center;
   justify-content: center;

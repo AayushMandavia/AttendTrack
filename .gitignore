@@ -43,3 +43,5 @@ prompt_*.txt
 .vercel
 .env*
 ~$*
+~$*
+
