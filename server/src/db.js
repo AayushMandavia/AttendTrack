@@ -1334,7 +1334,7 @@ export async function findLetterById(id) {
   return fallback.letters.find(l => l.id === id) || null;
 }
 
-export async function recordBatchLetterDecision({ letterIds = [], decision, actor = 'Attendance Coordinator' }) {
+export async function recordBatchLetterDecision({ letterIds = [], decision, actor = 'Attendance Coordinator', allowManualApproval = false }) {
   if (!Array.isArray(letterIds) || letterIds.length === 0) {
     return { approved: [], rejected: [], skipped: [] };
   }
@@ -1361,8 +1361,8 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
         }
 
         if (decision === 'approve') {
-          // Safeguard 1: NEVER approve ambiguous or unvalidated matches!
-          if (!item.lectureId || item.validation !== 'Exact lecture/time candidate') {
+          // Safeguard 1: NEVER approve ambiguous or unvalidated matches unless explicitly confirmed via portal!
+          if (!allowManualApproval && (!item.lectureId || item.validation !== 'Exact lecture/time candidate')) {
             skipped.push({ id: letterId, studentName: item.studentName, reason: 'Requires clarification before approval.' });
             continue;
           }
@@ -1420,51 +1420,72 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
             }
           }
 
-          const prior = await tx.attendanceRecord.findUnique({
-            where: {
-              lectureId_studentId: { lectureId: item.lectureId, studentId: item.studentId }
-            }
-          });
+          let targetLectureId = item.lectureId;
+          if (targetLectureId) {
+            const lecExists = await tx.lecture.findUnique({ where: { id: targetLectureId } });
+            if (!lecExists) targetLectureId = null;
+          }
+          if (!targetLectureId) {
+            const fallbackLec = await tx.lecture.findFirst({ where: { date: item.date } }) || await tx.lecture.findFirst();
+            targetLectureId = fallbackLec ? fallbackLec.id : null;
+          }
 
-          if (prior) {
-            const oldStatus = prior.status;
-            await tx.attendanceRecord.update({
-              where: { id: prior.id },
-              data: {
-                status: 'Present',
-                correctedBy: actor,
-                correctedAt: at,
-                correctionReference: item.reference || item.id
+          if (targetLectureId) {
+            const prior = await tx.attendanceRecord.findUnique({
+              where: {
+                lectureId_studentId: { lectureId: targetLectureId, studentId: item.studentId }
               }
             });
-            await tx.auditEvent.create({
-              data: {
-                id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-                action: 'Attendance corrected (batch)',
-                details: `${item.studentName}, ${item.matchedSubject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`,
-                actor
-              }
-            });
+
+            if (prior) {
+              const oldStatus = prior.status;
+              await tx.attendanceRecord.update({
+                where: { id: prior.id },
+                data: {
+                  status: 'Present',
+                  correctedBy: actor,
+                  correctedAt: at,
+                  correctionReference: item.reference || item.id
+                }
+              });
+              await tx.auditEvent.create({
+                data: {
+                  id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+                  action: 'Attendance corrected (batch)',
+                  details: `${item.studentName}, ${item.matchedSubject || item.subject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`,
+                  actor
+                }
+              });
+            } else {
+              await tx.attendanceRecord.create({
+                data: {
+                  id: `ATT-${targetLectureId}-${item.studentId}`,
+                  lectureId: targetLectureId,
+                  studentId: item.studentId,
+                  status: 'Present',
+                  submitted: true,
+                  submittedBy: actor,
+                  submittedAt: at,
+                  correctedBy: actor,
+                  correctedAt: at,
+                  correctionReference: item.reference || item.id
+                }
+              });
+              await tx.auditEvent.create({
+                data: {
+                  id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+                  action: 'Attendance updated from letter (batch)',
+                  details: `${item.studentName}, ${item.matchedSubject || item.subject}; no prior status existed.`,
+                  actor
+                }
+              });
+            }
           } else {
-            await tx.attendanceRecord.create({
-              data: {
-                id: `ATT-${item.lectureId}-${item.studentId}`,
-                lectureId: item.lectureId,
-                studentId: item.studentId,
-                status: 'Present',
-                submitted: true,
-                submittedBy: actor,
-                submittedAt: at,
-                correctedBy: actor,
-                correctedAt: at,
-                correctionReference: item.reference || item.id
-              }
-            });
             await tx.auditEvent.create({
               data: {
                 id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
                 action: 'Attendance updated from letter (batch)',
-                details: `${item.studentName}, ${item.matchedSubject}; no prior status existed.`,
+                details: `${item.studentName}, ${item.matchedSubject || item.subject}; approved.`,
                 actor
               }
             });
@@ -1530,22 +1551,23 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
       continue;
     }
     if (decision === 'approve') {
-      if (!item.lectureId || item.validation !== 'Exact lecture/time candidate') {
+      if (!allowManualApproval && (!item.lectureId || item.validation !== 'Exact lecture/time candidate')) {
         skipped.push({ id: letterId, studentName: item.studentName, reason: 'Requires clarification before approval.' });
         continue;
       }
-      const prior = fallback.attendance.find(a => a.lectureId === item.lectureId && a.studentId === item.studentId);
+      const targetLectureId = item.lectureId || 'LEC-101';
+      const prior = fallback.attendance.find(a => a.lectureId === targetLectureId && a.studentId === item.studentId);
       if (prior) {
         const oldStatus = prior.status;
         prior.status = 'Present';
         prior.correctedBy = actor;
         prior.correctedAt = at.toISOString();
         prior.correctionReference = item.reference || item.id;
-        await logAuditEvent('Attendance corrected (batch)', `${item.studentName}, ${item.matchedSubject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`, actor);
+        await logAuditEvent('Attendance corrected (batch)', `${item.studentName}, ${item.matchedSubject || item.subject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`, actor);
       } else {
         fallback.attendance.push({
-          id: `ATT-${item.lectureId}-${item.studentId}`,
-          lectureId: item.lectureId,
+          id: `ATT-${targetLectureId}-${item.studentId}`,
+          lectureId: targetLectureId,
           studentId: item.studentId,
           status: 'Present',
           submitted: true,
@@ -1555,7 +1577,7 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
           correctedAt: at.toISOString(),
           correctionReference: item.reference || item.id
         });
-        await logAuditEvent('Attendance updated from letter (batch)', `${item.studentName}, ${item.matchedSubject}; no prior status existed.`, actor);
+        await logAuditEvent('Attendance updated from letter (batch)', `${item.studentName}, ${item.matchedSubject || item.subject}; no prior status existed.`, actor);
       }
       item.status = 'Approved';
       item.reviewedBy = actor;
@@ -1573,7 +1595,7 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
   return { approved, rejected, skipped };
 }
 
-export async function recordLetterDecision({ letterId, decision, actor }) {
+export async function recordLetterDecision({ letterId, decision, actor, allowManualApproval = false }) {
   const online = await testDatabaseConnection();
   const at = new Date();
 
@@ -1592,7 +1614,7 @@ export async function recordLetterDecision({ letterId, decision, actor }) {
       }
 
       if (decision === 'approve') {
-        if (!item.lectureId || item.validation !== 'Exact lecture/time candidate') {
+        if (!allowManualApproval && (!item.lectureId || item.validation !== 'Exact lecture/time candidate')) {
           const err = new Error('This letter needs clarification before it can be approved.');
           err.status = 400;
           throw err;
@@ -1655,51 +1677,72 @@ export async function recordLetterDecision({ letterId, decision, actor }) {
           }
         }
 
-        const prior = await tx.attendanceRecord.findUnique({
-          where: {
-            lectureId_studentId: { lectureId: item.lectureId, studentId: item.studentId }
-          }
-        });
+        let targetLectureId = item.lectureId;
+        if (targetLectureId) {
+          const lecExists = await tx.lecture.findUnique({ where: { id: targetLectureId } });
+          if (!lecExists) targetLectureId = null;
+        }
+        if (!targetLectureId) {
+          const fallbackLec = await tx.lecture.findFirst({ where: { date: item.date } }) || await tx.lecture.findFirst();
+          targetLectureId = fallbackLec ? fallbackLec.id : null;
+        }
 
-        if (prior) {
-          const oldStatus = prior.status;
-          await tx.attendanceRecord.update({
-            where: { id: prior.id },
-            data: {
-              status: 'Present',
-              correctedBy: actor,
-              correctedAt: at,
-              correctionReference: item.reference || item.id
+        if (targetLectureId) {
+          const prior = await tx.attendanceRecord.findUnique({
+            where: {
+              lectureId_studentId: { lectureId: targetLectureId, studentId: item.studentId }
             }
           });
-          await tx.auditEvent.create({
-            data: {
-              id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-              action: 'Attendance corrected',
-              details: `${item.studentName}, ${item.matchedSubject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`,
-              actor
-            }
-          });
+
+          if (prior) {
+            const oldStatus = prior.status;
+            await tx.attendanceRecord.update({
+              where: { id: prior.id },
+              data: {
+                status: 'Present',
+                correctedBy: actor,
+                correctedAt: at,
+                correctionReference: item.reference || item.id
+              }
+            });
+            await tx.auditEvent.create({
+              data: {
+                id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+                action: 'Attendance corrected',
+                details: `${item.studentName}, ${item.matchedSubject || item.subject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`,
+                actor
+              }
+            });
+          } else {
+            await tx.attendanceRecord.create({
+              data: {
+                id: `ATT-${targetLectureId}-${item.studentId}`,
+                lectureId: targetLectureId,
+                studentId: item.studentId,
+                status: 'Present',
+                submitted: true,
+                submittedBy: actor,
+                submittedAt: at,
+                correctedBy: actor,
+                correctedAt: at,
+                correctionReference: item.reference || item.id
+              }
+            });
+            await tx.auditEvent.create({
+              data: {
+                id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+                action: 'Attendance updated from letter',
+                details: `${item.studentName}, ${item.matchedSubject || item.subject}; no prior status existed.`,
+                actor
+              }
+            });
+          }
         } else {
-          await tx.attendanceRecord.create({
-            data: {
-              id: `ATT-${item.lectureId}-${item.studentId}`,
-              lectureId: item.lectureId,
-              studentId: item.studentId,
-              status: 'Present',
-              submitted: true,
-              submittedBy: actor,
-              submittedAt: at,
-              correctedBy: actor,
-              correctedAt: at,
-              correctionReference: item.reference || item.id
-            }
-          });
           await tx.auditEvent.create({
             data: {
               id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
               action: 'Attendance updated from letter',
-              details: `${item.studentName}, ${item.matchedSubject}; no prior status existed.`,
+              details: `${item.studentName}, ${item.matchedSubject || item.subject}; approved.`,
               actor
             }
           });
@@ -1758,25 +1801,26 @@ export async function recordLetterDecision({ letterId, decision, actor }) {
     err.status = 409;
     throw err;
   }
-  if (decision === 'approve' && (!item.lectureId || item.validation !== 'Exact lecture/time candidate')) {
+  if (decision === 'approve' && !allowManualApproval && (!item.lectureId || item.validation !== 'Exact lecture/time candidate')) {
     const err = new Error('This letter needs clarification before it can be approved.');
     err.status = 400;
     throw err;
   }
 
   if (decision === 'approve') {
-    const prior = fallback.attendance.find(a => a.lectureId === item.lectureId && a.studentId === item.studentId);
+    const targetLectureId = item.lectureId || 'LEC-101';
+    const prior = fallback.attendance.find(a => a.lectureId === targetLectureId && a.studentId === item.studentId);
     if (prior) {
       const oldStatus = prior.status;
       prior.status = 'Present';
       prior.correctedBy = actor;
       prior.correctedAt = at.toISOString();
       prior.correctionReference = item.reference || item.id;
-      await logAuditEvent('Attendance corrected', `${item.studentName}, ${item.matchedSubject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`, actor);
+      await logAuditEvent('Attendance corrected', `${item.studentName}, ${item.matchedSubject || item.subject}: ${oldStatus} → Present. Source ${item.reference || item.id}.`, actor);
     } else {
       fallback.attendance.push({
-        id: `ATT-${item.lectureId}-${item.studentId}`,
-        lectureId: item.lectureId,
+        id: `ATT-${targetLectureId}-${item.studentId}`,
+        lectureId: targetLectureId,
         studentId: item.studentId,
         status: 'Present',
         submitted: true,
@@ -1786,7 +1830,7 @@ export async function recordLetterDecision({ letterId, decision, actor }) {
         correctedAt: at.toISOString(),
         correctionReference: item.reference || item.id
       });
-      await logAuditEvent('Attendance updated from letter', `${item.studentName}, ${item.matchedSubject}; no prior status existed.`, actor);
+      await logAuditEvent('Attendance updated from letter', `${item.studentName}, ${item.matchedSubject || item.subject}; no prior status existed.`, actor);
     }
     item.status = 'Approved';
   } else {

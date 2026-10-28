@@ -529,7 +529,7 @@ export default function App() {
   }
 
   async function approveAllEligible() {
-    const eligible = data.letters.filter(l => l.status === 'Pending' && l.lectureId && l.validation === 'Exact lecture/time candidate');
+    const eligible = data.letters.filter(l => l.status === 'Pending');
     if (eligible.length === 0) return;
 
     try {

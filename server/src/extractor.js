@@ -104,8 +104,8 @@ export function parseTimes(text) {
     };
   }
 
-  // Strategy B: Time range e.g. "10:00 to 11:00", "8AM to 6PM", "10:00 - 11:00"
-  const rangeMatch = text.match(/\b(\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm))\s*(?:to|-|–|and)\s*(\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm))\b/i);
+  // Strategy B: Time range e.g. "10:00 to 11:00", "8AM to 6PM", "10:00 - 11:00", "10:00 AM - 01:00 PM"
+  const rangeMatch = text.match(/\b(\d{1,2}:\d{2}(?:\s*(?:am|pm))?|\d{1,2}\s*(?:am|pm))\s*(?:to|-|–|and)\s*(\d{1,2}:\d{2}(?:\s*(?:am|pm))?|\d{1,2}\s*(?:am|pm))\b/i);
   if (rangeMatch) {
     const t1 = rangeMatch[1].trim();
     const t2 = rangeMatch[2].trim();
