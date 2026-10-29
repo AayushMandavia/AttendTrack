@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import AdminRosterSection from './AdminRosterSection.jsx';
 import TimetableSection from './TimetableSection.jsx';
 import LoginPage from './LoginPage.jsx';
@@ -239,7 +239,11 @@ export default function App() {
     }
   }
 
+  const isRefreshingRef = useRef(false);
+
   async function refresh(overrideToken) {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     const token = overrideToken !== undefined ? overrideToken : authToken;
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -253,13 +257,11 @@ export default function App() {
       }
       const d = await r.json();
       setData(d);
-      if (d.isPostgresConnected === false && d.databaseWarning) {
-        console.warn(`[AttendTrack] ${d.databaseWarning}`);
-        setMessage(prev => (prev && prev.includes('PostgreSQL is disconnected') ? '' : prev));
-      } else if (d.isPostgresConnected === true) {
-        setMessage(prev => (prev && prev.includes('PostgreSQL is disconnected') ? '' : prev));
-        setIsError(false);
-      }
+
+      // Successfully connected: clear any prior connection / offline error banners
+      setMessage(prev => (prev && (prev.includes('API not connected') || prev.includes('PostgreSQL is disconnected') || prev.includes('AttendTrack services')) ? '' : prev));
+      setIsError(false);
+
       if (!lectureId && d.lectures[0]) setLectureId(d.lectures[0].id);
       if (!adminCorrectionLectureId && d.lectures[0]) setAdminCorrectionLectureId(d.lectures[0].id);
       if (!studentViewId && d.students[0]) setStudentViewId(d.students[0].id);
@@ -269,9 +271,19 @@ export default function App() {
       return d;
     } catch (err) {
       if (err?.message === 'Session expired') throw err;
-      setMessage('API not connected. Start the server on port 4000.');
-      setIsError(true);
+
+      // If the dashboard already has data rendered, do NOT flash a fatal error banner for background polling hiccups
+      const hasExistingData = (data?.students?.length > 0) || (data?.lectures?.length > 0);
+      if (!hasExistingData) {
+        const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        setMessage(isLocal ? 'API not connected. Start the server on port 4000.' : 'Connecting to AttendTrack services... Retrying in background.');
+        setIsError(true);
+      } else {
+        console.warn('[AttendTrack] Background dashboard refresh delayed:', err.message);
+      }
       throw err;
+    } finally {
+      isRefreshingRef.current = false;
     }
   }
 
@@ -283,17 +295,17 @@ export default function App() {
     }
     const interval = setInterval(() => {
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        refresh();
+        refresh().catch(() => {});
         if (currentUser?.role === 'STUDENT') {
-          refreshStudentData();
+          refreshStudentData().catch(() => {});
         }
       }
-    }, 3000); // 3 seconds fast synchronization interval when active
+    }, 5000); // 5 seconds polling when active
     const onFocusOrVisible = () => {
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        refresh();
+        refresh().catch(() => {});
         if (currentUser?.role === 'STUDENT') {
-          refreshStudentData();
+          refreshStudentData().catch(() => {});
         }
       }
     };
