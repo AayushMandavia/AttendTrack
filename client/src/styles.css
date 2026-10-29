@@ -2232,7 +2232,8 @@ td small {
   object-fit: contain;
 }
 
-.frame2-crest-logo {
+.frame2-crest-logo,
+.frame2-djsce-logo {
   height: clamp(46px, 5.8vh, 60px);
   width: auto;
   object-fit: contain;

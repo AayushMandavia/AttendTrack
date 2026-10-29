@@ -1,7 +1,10 @@
 # 🎓 AttendTrack — Enterprise Academic Attendance & Exception Management Platform
 
 <p align="center">
-  <img src="client/public/djsce_crest.png" alt="DJSCE Crest" width="140" />
+  <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
+    <img src="client/public/djsce_crest.png#gh-light-mode-only" alt="DJSCE Crest" width="140" />
+    <img src="client/public/djsce_crest_dark.png#gh-dark-mode-only" alt="DJSCE Crest" width="140" />
+  </a>
 </p>
 
 <p align="center">
@@ -32,7 +35,7 @@ It guarantees institutional integrity through automated rules like the **server-
 ## ✨ Key Features
 
 ### 🏛️ Authentic Institutional Experience
-- **Ultra-HD Transparent College Crest**: Custom vector-clean 800×721px transparent crest with dynamic light sweep shimmer animation on initial launch.
+- **Ultra-HD Transparent College Crest**: Custom vector-clean 950×861px transparent crest with dynamic light sweep shimmer animation on initial launch.
 - **1.5s Role-Specific Skeleton Preloaders**: Instant visual layout preservation with shimmer placeholders matching each portal's exact geometry, preventing layout shift or UI flickering during asynchronous data fetches.
 - **Institutional Topbar & Navigation**: DJSCE branding, NAAC 'A' grade credential strip, live date capsules, notification badges, and authenticated profile dropdowns with role-based routing.
 
