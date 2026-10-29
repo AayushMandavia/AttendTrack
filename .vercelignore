@@ -5,7 +5,7 @@ server/node_modules
 .github
 docs
 scratch
-server/backups
+server/backups/*.sql
 server/uploads
 server/storage
 *.log

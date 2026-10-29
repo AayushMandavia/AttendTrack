@@ -119,7 +119,18 @@ const FALLBACK_STATE_DIR = process.env.FALLBACK_STATE_DIR || (
   isServerlessEnv ? '/tmp' : path.join(__dirname, '..', 'storage')
 );
 const FALLBACK_STATE_FILE = path.join(FALLBACK_STATE_DIR, 'persistent_fallback_state.json');
-const BACKUP_SEED_FILE = path.join(__dirname, '..', 'backups', 'backup_attendtrack_2026-10-19T11-24-06-133Z.json');
+
+function findBackupSeedPath() {
+  const candidates = [
+    path.join(__dirname, '..', 'backups', 'backup_attendtrack_2026-10-19T11-24-06-133Z.json'),
+    path.join(process.cwd(), 'server', 'backups', 'backup_attendtrack_2026-10-19T11-24-06-133Z.json'),
+    path.join(process.cwd(), 'backups', 'backup_attendtrack_2026-10-19T11-24-06-133Z.json')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return candidates[0];
+}
 
 export function saveFallbackState() {
   try {
@@ -156,8 +167,9 @@ export function loadFallbackState() {
       return;
     }
 
-    if (fs.existsSync(BACKUP_SEED_FILE)) {
-      const rawBackup = fs.readFileSync(BACKUP_SEED_FILE, 'utf8');
+    const backupSeedPath = findBackupSeedPath();
+    if (fs.existsSync(backupSeedPath)) {
+      const rawBackup = fs.readFileSync(backupSeedPath, 'utf8');
       const backupObj = JSON.parse(rawBackup);
       if (backupObj?.data) {
         if (Array.isArray(backupObj.data.attendanceLetters)) {
@@ -2165,8 +2177,9 @@ export function resetFallbackStore() {
 }
 
 export function restoreFallbackFromSeed() {
-  if (fs.existsSync(BACKUP_SEED_FILE)) {
-    const rawBackup = fs.readFileSync(BACKUP_SEED_FILE, 'utf8');
+  const backupSeedPath = findBackupSeedPath();
+  if (fs.existsSync(backupSeedPath)) {
+    const rawBackup = fs.readFileSync(backupSeedPath, 'utf8');
     const backupObj = JSON.parse(rawBackup);
     if (backupObj?.data) {
       if (Array.isArray(backupObj.data.attendanceLetters)) fallback.letters = [...backupObj.data.attendanceLetters];

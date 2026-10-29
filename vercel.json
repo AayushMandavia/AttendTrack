@@ -1,6 +1,11 @@
 {
   "buildCommand": "prisma generate --schema=server/prisma/schema.prisma && cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "server/backups/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
