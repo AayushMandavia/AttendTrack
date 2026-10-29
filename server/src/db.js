@@ -39,6 +39,14 @@ export async function testDatabaseConnection(force = false) {
     return false;
   }
 
+  // Detect serverless environment pointing to local-only host
+  const isServerless = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  const isLocalHost = process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1');
+  if (isServerless && isLocalHost) {
+    isConnected = false;
+    return false;
+  }
+
   const now = Date.now();
   if (!force && isConnected && now - lastPingTime < PING_CACHE_MS) {
     return true;
