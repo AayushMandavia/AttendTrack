@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import DemoNotice from './DemoNoticeModal.jsx';
 
 // --- SVG Icons ---
 function IconDashboard({ size = 18 }) {
@@ -863,6 +864,11 @@ Verification Status: Approved by Convener.
               <button className="quiet" onClick={() => setMessage('')}>Dismiss</button>
             </div>
           )}
+
+          {/* SAP Demo Notice Bar - placed in the strip marked in user screenshot */}
+          <div className="coord-demo-notice-bar">
+            <DemoNotice />
+          </div>
 
           {/* 4. Dashboard Heading and Date Capsule */}
           <div className="coord-header-row">

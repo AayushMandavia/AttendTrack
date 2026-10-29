@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import TimetableSection from './TimetableSection.jsx';
 import TeacherTimetableSection from './TeacherTimetableSection.jsx';
+import DemoNotice from './DemoNoticeModal.jsx';
 
 function getLocalDateStr(date = new Date()) {
   const y = date.getFullYear();
@@ -1003,6 +1004,11 @@ export default function TeacherPortalView({
           {/* Subview 1: Take Attendance (Primary Target View) */}
           {teacherNavTab === 'attendance' && (
             <div className="teacher-attendance-view-container">
+              {/* SAP Demo Notice Bar */}
+              <div className="coord-demo-notice-bar">
+                <DemoNotice />
+              </div>
+
               {/* Workspace Top Heading */}
               <div className="teacher-workspace-heading-row">
                 <div className="teacher-title-group">
@@ -1458,6 +1464,11 @@ export default function TeacherPortalView({
           {/* Subview 2: Faculty Dashboard */}
           {teacherNavTab === 'dashboard' && (
             <div className="teacher-dashboard-view">
+              {/* SAP Demo Notice Bar */}
+              <div className="coord-demo-notice-bar">
+                <DemoNotice />
+              </div>
+
               {/* Workspace Top Heading */}
               <div className="teacher-workspace-heading-row">
                 <div className="teacher-title-group">

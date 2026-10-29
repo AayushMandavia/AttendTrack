@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import DemoNotice from './DemoNoticeModal.jsx';
 
 const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -203,6 +204,11 @@ export default function LoginPage({ onLoginSuccess, isPostgresConnected, isPrelo
             <span className="frame2-notice-line"></span>
             <span className="frame2-notice-text">Access is determined by your account permissions</span>
             <span className="frame2-notice-line"></span>
+          </div>
+
+          {/* SAP Demo Notice */}
+          <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center' }}>
+            <DemoNotice />
           </div>
         </div>
 

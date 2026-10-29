@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import TimetableSection from './TimetableSection.jsx';
+import DemoNotice from './DemoNoticeModal.jsx';
 
 function IconDashboard({ size = 18 }) {
   return (
@@ -1020,6 +1021,11 @@ export default function StudentPortalView({
           {/* TAB 1: MAIN SS1 DASHBOARD */}
           {studentNavTab === 'dashboard' && (
             <>
+              {/* SAP Demo Notice Bar */}
+              <div className="coord-demo-notice-bar" style={{ marginBottom: '10px' }}>
+                <DemoNotice />
+              </div>
+
               {/* Top Greeting Header */}
               <div className="student-greeting-container">
                 <div>

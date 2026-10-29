@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import AdminRosterSection from './AdminRosterSection.jsx';
 import TimetableSection from './TimetableSection.jsx';
+import DemoNotice from './DemoNoticeModal.jsx';
 
 // --- SVG Icons ---
 function IconDashboard({ size = 18 }) {
@@ -722,6 +723,11 @@ export default function AdminPortalView({
 
         {/* Main Content Area */}
         <main className="admin-main-content">
+          {/* SAP Demo Notice Bar */}
+          <div className="coord-demo-notice-bar">
+            <DemoNotice />
+          </div>
+
           {/* Heading & Upper-Right Date */}
           <div className="admin-page-header">
             <div>
