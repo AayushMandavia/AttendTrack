@@ -11,6 +11,7 @@
 export const COLLEGE_TIMEZONE = process.env.COLLEGE_TIMEZONE || 'Asia/Kolkata';
 export const CORRECTION_WINDOW_HOURS = 24;
 export const CORRECTION_WINDOW_MS = CORRECTION_WINDOW_HOURS * 60 * 60 * 1000;
+export const LATE_CUTOFF_TIME = '18:00'; // 6:00 PM cutoff for Late attendance auto-conversion to Absent
 
 /**
  * Parses date ("YYYY-MM-DD") and time ("HH:MM") into an exact Date object
@@ -95,3 +96,38 @@ export function checkAttendanceCorrectionWindow(lecture, currentTime = new Date(
     formattedDeadline: deadline.toLocaleString('en-IN', { timeZone, dateStyle: 'medium', timeStyle: 'short' })
   };
 }
+
+/**
+ * Calculates the exact 6:00 PM (18:00 IST) late attendance cutoff for a lecture.
+ */
+export function getLateAttendanceCutoff(lecture, timeZone = COLLEGE_TIMEZONE) {
+  if (!lecture || !lecture.date) return null;
+  return parseLectureDateTime(lecture.date, LATE_CUTOFF_TIME, timeZone);
+}
+
+/**
+ * Evaluates whether the 6:00 PM (18:00) cutoff for late attendance has passed.
+ * As soon as the clock reaches 6:00 PM on the lecture's date, this returns true.
+ */
+export function isLateCutoffPassed(lecture, currentTime = new Date(), timeZone = COLLEGE_TIMEZONE) {
+  const cutoff = getLateAttendanceCutoff(lecture, timeZone);
+  if (!cutoff || isNaN(cutoff.getTime())) return false;
+  const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
+  return now.getTime() >= cutoff.getTime();
+}
+
+/**
+ * Automatically converts any entry with status 'Late' to 'Absent' if the 6:00 PM cutoff has passed.
+ */
+export function resolveLateAttendanceEntries(lecture, entries, currentTime = new Date(), timeZone = COLLEGE_TIMEZONE) {
+  if (!Array.isArray(entries)) return entries;
+  const cutoffPassed = isLateCutoffPassed(lecture, currentTime, timeZone);
+  if (!cutoffPassed) return entries;
+  return entries.map(e => {
+    if (e.status === 'Late') {
+      return { ...e, status: 'Absent', autoConvertedFromLate: true };
+    }
+    return e;
+  });
+}
+

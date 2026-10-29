@@ -8,6 +8,7 @@ import AdminPortalView from './AdminPortalView.jsx';
 import CoordinatorPortalView from './CoordinatorPortalView.jsx';
 import TransparentPreloader from './TransparentPreloader.jsx';
 import RoleSkeletonDashboard from './RoleSkeletonDashboard.jsx';
+import { resolveRealTimeLecture, getLocalDateStr } from './attendanceUtils.js';
 
 const API = import.meta.env.VITE_API_BASE_URL || '/api';
 const roles = ['Teacher', 'Attendance Coordinator', 'Student', 'Admin'];
@@ -262,8 +263,15 @@ export default function App() {
       setMessage(prev => (prev && (prev.includes('API not connected') || prev.includes('PostgreSQL is disconnected') || prev.includes('AttendTrack services')) ? '' : prev));
       setIsError(false);
 
-      if (!lectureId && d.lectures[0]) setLectureId(d.lectures[0].id);
-      if (!adminCorrectionLectureId && d.lectures[0]) setAdminCorrectionLectureId(d.lectures[0].id);
+      const realTimeLec = resolveRealTimeLecture(d.lectures, null, new Date());
+      const todayStr = getLocalDateStr(new Date());
+      const currentSelected = (d.lectures || []).find(l => l.id === lectureId);
+
+      // Auto-select real-time lecture if none selected or if selected lecture is on another date while today's lecture exists
+      if (!lectureId || !currentSelected || (currentSelected.date !== todayStr && realTimeLec?.date === todayStr)) {
+        if (realTimeLec) setLectureId(realTimeLec.id);
+      }
+      if (!adminCorrectionLectureId && (realTimeLec || d.lectures[0])) setAdminCorrectionLectureId(realTimeLec?.id || d.lectures[0]?.id);
       if (!studentViewId && d.students[0]) setStudentViewId(d.students[0].id);
       if (currentUser?.role === 'STUDENT') {
         await refreshStudentData(token);

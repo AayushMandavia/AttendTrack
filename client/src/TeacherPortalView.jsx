@@ -2,19 +2,12 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import TimetableSection from './TimetableSection.jsx';
 import TeacherTimetableSection from './TeacherTimetableSection.jsx';
 import DemoNotice from './DemoNoticeModal.jsx';
-
-function getLocalDateStr(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function getLocalTimeStr(date = new Date()) {
-  const h = String(date.getHours()).padStart(2, '0');
-  const m = String(date.getMinutes()).padStart(2, '0');
-  return `${h}:${m}`;
-}
+import {
+  getLocalDateStr,
+  getLocalTimeStr,
+  isLateCutoffReached,
+  resolveRealTimeLecture
+} from './attendanceUtils.js';
 
 function computeTimeUntil(startTimeStr, now = new Date()) {
   if (!startTimeStr) return '';
@@ -301,7 +294,15 @@ export default function TeacherPortalView({
   const [isSaving, setIsSaving] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [showAllLogsModal, setShowAllLogsModal] = useState(false);
-  const [lateStudents, setLateStudents] = useState({});
+
+  // Live real-time clock updating every 1000ms
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -318,42 +319,16 @@ export default function TeacherPortalView({
     };
   }, [showUserDropdown]);
 
-  const todayStr = useMemo(() => getLocalDateStr(), []);
-  const currentTimeStr = useMemo(() => getLocalTimeStr(), []);
+  const todayStr = useMemo(() => getLocalDateStr(now), [now]);
+  const currentTimeStr = useMemo(() => getLocalTimeStr(now), [now]);
 
   // Categorize lectures for the authenticated teacher: today, in-progress, upcoming, past today, future
-  // "in teacher always keep it in progress lec only": ensure active in-progress lecture is always present
   const lectureTimeline = useMemo(() => {
     const list = data.lectures || [];
     const today = list.filter(l => l.date === todayStr);
 
     // Current lecture in progress right now: check real-time first
     let inProgress = today.find(l => l.startTime <= currentTimeStr && currentTimeStr < l.endTime) || null;
-
-    // Requirement: In teacher always keep it in progress lecture only
-    // If no lecture matches the exact clock time (e.g. past 12:00 or between slots),
-    // always maintain today's designated active teacher lecture (Signals & Systems) as in-progress
-    if (!inProgress) {
-      const candidate = today.find(l => (l.subject && l.subject.includes('Signals')) || l.id === 'LEC-20261027-EXTC-S4')
-        || list.find(l => l.subject && l.subject.includes('Signals') && l.date === todayStr)
-        || today.find(l => l.className?.includes('EXTC'))
-        || today[0]
-        || list.find(l => l.subject && l.subject.includes('Signals'))
-        || list[0];
-      if (candidate) {
-        inProgress = {
-          ...candidate,
-          date: todayStr,
-          startTime: candidate.startTime || '11:00',
-          endTime: candidate.endTime || '12:00',
-          room: candidate.room || 'LH-201',
-          correctionWindow: {
-            isOpen: true,
-            isExpired: false
-          }
-        };
-      }
-    }
 
     // Upcoming today
     const upcomingToday = today
@@ -365,7 +340,7 @@ export default function TeacherPortalView({
       .filter(l => l.id !== inProgress?.id && l.endTime <= currentTimeStr)
       .sort((a, b) => b.endTime.localeCompare(a.endTime));
 
-    // Future lectures after today
+    // Future lectures after today (sorted chronologically)
     const future = list
       .filter(l => l.date > todayStr)
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
@@ -375,7 +350,7 @@ export default function TeacherPortalView({
       .filter(l => l.date < todayStr)
       .sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
 
-    const allTodayFinished = false;
+    const allTodayFinished = today.length > 0 && upcomingToday.length === 0 && !inProgress;
 
     return {
       today,
@@ -388,18 +363,51 @@ export default function TeacherPortalView({
     };
   }, [data.lectures, todayStr, currentTimeStr]);
 
-  // Default lectureId to the in-progress lecture if no lecture is currently selected
+  // Categorized lectures for the Scheduled Lecture picker dropdown
+  const categorizedLectures = useMemo(() => {
+    const list = data.lectures || [];
+    const todayList = list
+      .filter(l => l.date === todayStr)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const upcomingList = list
+      .filter(l => l.date > todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+    const pastList = list
+      .filter(l => l.date < todayStr)
+      .sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
+
+    return {
+      today: todayList,
+      upcoming: upcomingList,
+      past: pastList
+    };
+  }, [data.lectures, todayStr]);
+
+  // Default lectureId to the in-progress / real-time lecture matching the current clock time
   useEffect(() => {
     if (!data.lectures || data.lectures.length === 0) return;
-    if (lectureId && (data.lectures.some(l => l.id === lectureId) || lectureTimeline.inProgress?.id === lectureId)) {
+    const selectedLec = data.lectures.find(l => l.id === lectureId);
+    const hasUnsaved = Object.keys(statuses).length > 0;
+
+    // If current selection is already for today, respect it unless it was uninitialized
+    if (selectedLec && selectedLec.date === todayStr) {
       return;
     }
-    if (lectureTimeline.inProgress) {
-      setLectureId(lectureTimeline.inProgress.id);
+
+    // If teacher has unsaved edits on another lecture, do not disrupt
+    if (hasUnsaved && selectedLec) return;
+
+    // Resolve real-time lecture matching the exact clock time (e.g. at 17:00, select 17:00-18:00)
+    const realTimeLec = resolveRealTimeLecture(data.lectures, null, now);
+    if (realTimeLec) {
+      setLectureId(realTimeLec.id);
       return;
     }
-    setLectureId(data.lectures[0].id);
-  }, [lectureId, data.lectures, lectureTimeline.inProgress, setLectureId]);
+
+    if (!lectureId && data.lectures[0]) {
+      setLectureId(data.lectures[0].id);
+    }
+  }, [data.lectures, todayStr, lectureId, statuses, now, setLectureId]);
 
   // Selected lecture & enrolled roster
   const currentLecture = useMemo(() => {
@@ -415,22 +423,34 @@ export default function TeacherPortalView({
     return data.lectures.find(l => l.id === lectureId) || data.lectures[0] || null;
   }, [data.lectures, lectureId, lectureTimeline.inProgress]);
 
-  // Selectable lectures in teacher Scheduled Lecture picker (in-progress + all teacher lectures)
-  const selectableLectures = useMemo(() => {
-    const list = [];
-    const seen = new Set();
-    if (lectureTimeline.inProgress) {
-      list.push({ ...lectureTimeline.inProgress, isInProgress: true });
-      seen.add(lectureTimeline.inProgress.id);
-    }
-    for (const l of (data.lectures || [])) {
-      if (!seen.has(l.id)) {
-        list.push({ ...l, isInProgress: false });
-        seen.add(l.id);
+  // 6:00 PM Late Cutoff status for the currently selected lecture
+  const isLecturePast6PM = useMemo(() => {
+    return isLateCutoffReached(currentLecture?.date || todayStr, now);
+  }, [currentLecture?.date, todayStr, now]);
+
+  // REAL-TIME 6:00 PM CUTOFF AUTO-CONVERSION:
+  // As soon as the clock reaches 6:00 PM (18:00 IST) on the lecture date,
+  // any student marked 'Late' automatically converts to 'Absent'.
+  useEffect(() => {
+    if (!currentLecture || !isLecturePast6PM) return;
+
+    let hasLate = false;
+    const updated = { ...statuses };
+    Object.entries(statuses).forEach(([sId, st]) => {
+      if (st === 'Late') {
+        updated[sId] = 'Absent';
+        hasLate = true;
+      }
+    });
+
+    if (hasLate) {
+      setStatuses(updated);
+      if (setMessage) {
+        setMessage('⏱ 6:00 PM Late Cutoff Reached: Students marked Late have automatically been marked Absent per college attendance regulations.');
+        if (setIsError) setIsError(false);
       }
     }
-    return list;
-  }, [lectureTimeline.inProgress, data.lectures]);
+  }, [isLecturePast6PM, currentLecture, statuses, setMessage, setIsError]);
 
   // Letters linked to the currently selected lecture
   const lettersForCurrentLecture = useMemo(() => {
@@ -469,28 +489,35 @@ export default function TeacherPortalView({
 
   // Active statuses calculation per student
   // Coordinator-approved letters take authoritative Present status unless teacher actively edits within window
+  // 6:00 PM Cutoff: If clock has reached 6:00 PM, any 'Late' status automatically resolves to 'Absent'
   const activeStatuses = useMemo(() => {
     const map = {};
     roster.forEach(s => {
       const prior = submittedForCurrentLecture.find(a => a.studentId === s.id);
       const approvedLetter = lettersForCurrentLecture.find(l => l.status === 'Approved' && (l.studentId === s.id || l.sapId === s.sapId));
+      let raw = 'Present';
+
       if (statuses[s.id]) {
-        map[s.id] = statuses[s.id];
+        raw = statuses[s.id];
       } else if (prior) {
-        map[s.id] = prior.status;
+        raw = prior.status;
       } else if (approvedLetter) {
-        map[s.id] = 'Present';
+        raw = 'Present';
+      }
+
+      if (raw === 'Late' && isLecturePast6PM) {
+        map[s.id] = 'Absent';
       } else {
-        map[s.id] = 'Present';
+        map[s.id] = raw;
       }
     });
     return map;
-  }, [roster, statuses, submittedForCurrentLecture, lettersForCurrentLecture]);
+  }, [roster, statuses, submittedForCurrentLecture, lettersForCurrentLecture, isLecturePast6PM]);
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
-    return Object.keys(statuses).length > 0 || Object.keys(lateStudents).length > 0;
-  }, [statuses, lateStudents]);
+    return Object.keys(statuses).length > 0;
+  }, [statuses]);
 
   // Summary counts
   const presentCount = useMemo(() => {
@@ -499,6 +526,10 @@ export default function TeacherPortalView({
 
   const absentCount = useMemo(() => {
     return roster.filter(s => activeStatuses[s.id] === 'Absent').length;
+  }, [roster, activeStatuses]);
+
+  const lateCount = useMemo(() => {
+    return roster.filter(s => activeStatuses[s.id] === 'Late').length;
   }, [roster, activeStatuses]);
 
   const unmarkedCount = useMemo(() => {
@@ -717,47 +748,31 @@ export default function TeacherPortalView({
     }
     setLectureId(newId);
     setStatuses({});
-    setLateStudents({});
     setSearchQuery('');
   }
 
   function handleToggleAttendance(studentId, newStatus) {
     if (isCorrectionExpired) return;
+
+    // 6:00 PM Late Cutoff check
+    if (newStatus === 'Late') {
+      if (isLecturePast6PM) {
+        setStatuses(prev => ({
+          ...prev,
+          [studentId]: 'Absent'
+        }));
+        if (setMessage) {
+          setMessage('⏱ 6:00 PM Late Cutoff Passed: Students arriving late are automatically recorded as Absent per college attendance regulations.');
+          if (setIsError) setIsError(false);
+        }
+        return;
+      }
+    }
+
     setStatuses(prev => ({
       ...prev,
       [studentId]: newStatus
     }));
-    // If setting to Absent, clear Late
-    if (newStatus === 'Absent') {
-      setLateStudents(prev => {
-        const copy = { ...prev };
-        delete copy[studentId];
-        return copy;
-      });
-    }
-  }
-
-  function handleToggleLate(studentId) {
-    if (isCorrectionExpired) return;
-    const currentlyLate = !!lateStudents[studentId];
-    if (currentlyLate) {
-      // Unset late
-      setLateStudents(prev => {
-        const copy = { ...prev };
-        delete copy[studentId];
-        return copy;
-      });
-    } else {
-      // Set to Present and mark late
-      setStatuses(prev => ({
-        ...prev,
-        [studentId]: 'Present'
-      }));
-      setLateStudents(prev => ({
-        ...prev,
-        [studentId]: true
-      }));
-    }
   }
 
   function handleResetChanges() {
@@ -766,7 +781,6 @@ export default function TeacherPortalView({
       if (!confirmReset) return;
     }
     setStatuses({});
-    setLateStudents({});
     if (setMessage) setMessage('Attendance selections reset to last saved state.');
     if (setIsError) setIsError(false);
   }
@@ -783,7 +797,6 @@ export default function TeacherPortalView({
       await submitAttendance();
       // On success, clear dirty state
       setStatuses({});
-      setLateStudents({});
     } catch (err) {
       // handled by submitAttendance in parent
     } finally {
@@ -1063,11 +1076,33 @@ export default function TeacherPortalView({
                         value={currentLecture?.id || lectureId}
                         onChange={e => handleLectureChange(e.target.value)}
                       >
-                        {selectableLectures.map(l => (
-                          <option key={l.id} value={l.id}>
-                            {l.isInProgress ? '🔴 [IN PROGRESS] ' : ''}{l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})
-                          </option>
-                        ))}
+                        {categorizedLectures.today.length > 0 && (
+                          <optgroup label="📅 Today's Scheduled Lectures (Live & Real-Time)">
+                            {categorizedLectures.today.map(l => (
+                              <option key={l.id} value={l.id}>
+                                {l.id === lectureTimeline.inProgress?.id ? '🟢 [HAPPENING NOW] ' : ''}{l.subject} · {l.startTime}–{l.endTime} ({l.className}) {l.room ? `· ${l.room}` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {categorizedLectures.upcoming.length > 0 && (
+                          <optgroup label="⏭️ Upcoming Lectures (Future Dates)">
+                            {categorizedLectures.upcoming.map(l => (
+                              <option key={l.id} value={l.id}>
+                                {l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {categorizedLectures.past.length > 0 && (
+                          <optgroup label="📁 Historical / Past Lectures">
+                            {categorizedLectures.past.map(l => (
+                              <option key={l.id} value={l.id}>
+                                {l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
 
@@ -1098,6 +1133,16 @@ export default function TeacherPortalView({
                           </div>
                         </div>
                       </div>
+                      {currentLecture?.id !== lectureTimeline.inProgress.id && (
+                        <button
+                          type="button"
+                          className="banner-action-btn"
+                          style={{ marginLeft: 'auto', background: '#059669', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
+                          onClick={() => handleLectureChange(lectureTimeline.inProgress.id)}
+                        >
+                          ⚡ Switch to Live Lecture
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -1217,6 +1262,13 @@ export default function TeacherPortalView({
                         <span className="pill-title">Absent</span>
                         <span className="pill-number">{absentCount}</span>
                       </div>
+                      {(!isLecturePast6PM || lateCount > 0) && (
+                        <div className="count-pill late" title="Students marked Late before 6:00 PM cutoff">
+                          <span className="pill-dot amber"></span>
+                          <span className="pill-title">Late</span>
+                          <span className="pill-number">{lateCount}</span>
+                        </div>
+                      )}
                       <div className="count-pill unmarked">
                         <span className="pill-dot gray"></span>
                         <span className="pill-title">Unmarked</span>
@@ -1246,8 +1298,7 @@ export default function TeacherPortalView({
                         ) : (
                           filteredRoster.map((student, idx) => {
                             const status = activeStatuses[student.id];
-                            const isLate = !!lateStudents[student.id];
-                            const isDirty = statuses[student.id] !== undefined || lateStudents[student.id] !== undefined;
+                            const isDirty = statuses[student.id] !== undefined;
 
                             return (
                               <tr key={student.id} className={isDirty ? 'row-dirty' : ''}>
@@ -1296,9 +1347,9 @@ export default function TeacherPortalView({
                                     <button
                                       type="button"
                                       disabled={isCorrectionExpired}
-                                      className={`segmented-btn present ${status === 'Present' && !isLate ? 'selected' : ''}`}
+                                      className={`segmented-btn present ${status === 'Present' ? 'selected' : ''}`}
                                       onClick={() => handleToggleAttendance(student.id, 'Present')}
-                                      aria-pressed={status === 'Present' && !isLate}
+                                      aria-pressed={status === 'Present'}
                                       title="Mark Present"
                                     >
                                       ✓ Present
@@ -1316,10 +1367,10 @@ export default function TeacherPortalView({
                                     <button
                                       type="button"
                                       disabled={isCorrectionExpired}
-                                      className={`segmented-btn late ${isLate ? 'selected' : ''}`}
-                                      onClick={() => handleToggleLate(student.id)}
-                                      aria-pressed={isLate}
-                                      title="Mark Late (Recorded as Present per DJSCE Attendance Policy)"
+                                      className={`segmented-btn late ${status === 'Late' ? 'selected' : ''}`}
+                                      onClick={() => handleToggleAttendance(student.id, 'Late')}
+                                      aria-pressed={status === 'Late'}
+                                      title={isLecturePast6PM ? "After 6:00 PM cutoff, late students are marked Absent" : "Mark Late (Automatically converts to Absent at 6:00 PM)"}
                                     >
                                       ⏱ Late
                                     </button>

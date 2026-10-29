@@ -6174,6 +6174,20 @@ button.teacher-dropdown-item.logout:hover:not(:disabled) svg {
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
 }
 
+.teacher-select-input optgroup {
+  font-weight: 700;
+  color: #1e3a8a;
+  background: #f1f5f9;
+  padding: 6px 4px;
+}
+
+.teacher-select-input option {
+  font-weight: 450;
+  color: #1e293b;
+  background: #ffffff;
+  padding: 4px;
+}
+
 .teacher-meta-pill {
   padding: 10px 14px;
   border-radius: 8px;
@@ -6309,6 +6323,12 @@ button.teacher-dropdown-item.logout:hover:not(:disabled) svg {
   border-color: #fecaca;
 }
 
+.count-pill.late {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
 .count-pill.unmarked {
   background: #f8fafc;
   color: #475569;
@@ -6323,6 +6343,7 @@ button.teacher-dropdown-item.logout:hover:not(:disabled) svg {
 
 .pill-dot.green { background: #16a34a; }
 .pill-dot.red { background: #dc2626; }
+.pill-dot.amber { background: #f59e0b; }
 .pill-dot.gray { background: #94a3b8; }
 
 .pill-number {

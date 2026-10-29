@@ -20,7 +20,12 @@ import {
   WEEKDAYS,
   CLASS_GROUPS
 } from './timetable.js';
-import { checkAttendanceCorrectionWindow } from './attendance-window.js';
+import {
+  checkAttendanceCorrectionWindow,
+  isLateCutoffPassed,
+  resolveLateAttendanceEntries,
+  getLateAttendanceCutoff
+} from './attendance-window.js';
 import { studentCache, timetableCache, invalidateStudentCache } from './lru-cache.js';
 
 export const prisma = new PrismaClient();
@@ -240,8 +245,30 @@ export async function getDashboardData() {
       }
     }
 
+    const lectureMap = new Map(lectures.map(l => [l.id, l]));
+    const expiredLateIds = [];
+    const resolvedAttendance = attendance.map(a => {
+      if (a.status === 'Late') {
+        const lec = lectureMap.get(a.lectureId);
+        if (lec && isLateCutoffPassed(lec)) {
+          expiredLateIds.push(a.id);
+          return { ...a, status: 'Absent', autoConvertedFromLate: true };
+        }
+      }
+      return a;
+    });
+
+    if (expiredLateIds.length > 0) {
+      prisma.attendanceRecord.updateMany({
+        where: { id: { in: expiredLateIds } },
+        data: { status: 'Absent' }
+      }).catch(e => console.error('[Database] Failed to auto-convert expired Late records in Postgres:', e.message));
+    }
+
     const lecturesWithWindow = lectures.map(l => {
       const windowInfo = checkAttendanceCorrectionWindow(l);
+      const lateCutoff = getLateAttendanceCutoff(l);
+      const lateCutoffPassed = isLateCutoffPassed(l);
       const authoritativeStudentIds = (l.isCrossListed || l.isShared)
         ? l.studentIds
         : (studentIdsByClass[l.className] || l.studentIds || []);
@@ -255,16 +282,37 @@ export async function getDashboardData() {
           deadline: windowInfo.deadline?.toISOString(),
           formattedDeadline: windowInfo.formattedDeadline,
           formattedScheduledEnd: windowInfo.formattedScheduledEnd,
-          remainingMs: windowInfo.remainingMs
+          remainingMs: windowInfo.remainingMs,
+          lateCutoff: lateCutoff?.toISOString(),
+          isLateCutoffPassed: lateCutoffPassed
         }
       };
     });
 
-    return { students, totalStudents, lectures: lecturesWithWindow, attendance, letters, logs, isPostgresConnected: true };
+    return { students, totalStudents, lectures: lecturesWithWindow, attendance: resolvedAttendance, letters, logs, isPostgresConnected: true };
+  }
+
+  const fallbackLectureMap = new Map(fallback.lectures.map(l => [l.id, l]));
+  let fallbackUpdated = false;
+  const fallbackAttendance = fallback.attendance.map(a => {
+    if (a.status === 'Late') {
+      const lec = fallbackLectureMap.get(a.lectureId);
+      if (lec && isLateCutoffPassed(lec)) {
+        a.status = 'Absent';
+        fallbackUpdated = true;
+        return { ...a, status: 'Absent', autoConvertedFromLate: true };
+      }
+    }
+    return a;
+  });
+  if (fallbackUpdated) {
+    saveFallbackState();
   }
 
   const fallbackLecturesWithWindow = fallback.lectures.map(l => {
     const windowInfo = checkAttendanceCorrectionWindow(l);
+    const lateCutoff = getLateAttendanceCutoff(l);
+    const lateCutoffPassed = isLateCutoffPassed(l);
     return {
       ...l,
       correctionWindow: {
@@ -273,7 +321,9 @@ export async function getDashboardData() {
         deadline: windowInfo.deadline?.toISOString(),
         formattedDeadline: windowInfo.formattedDeadline,
         formattedScheduledEnd: windowInfo.formattedScheduledEnd,
-        remainingMs: windowInfo.remainingMs
+        remainingMs: windowInfo.remainingMs,
+        lateCutoff: lateCutoff?.toISOString(),
+        isLateCutoffPassed: lateCutoffPassed
       }
     };
   });
@@ -281,7 +331,7 @@ export async function getDashboardData() {
   return {
     students: fallback.students,
     lectures: fallbackLecturesWithWindow,
-    attendance: fallback.attendance,
+    attendance: fallbackAttendance,
     letters: fallback.letters,
     logs: fallback.logs,
     isPostgresConnected: false,
@@ -855,6 +905,12 @@ export async function saveAttendanceSubmission({
 }) {
   const at = serverTime instanceof Date ? serverTime : new Date(serverTime);
 
+  // 6:00 PM Late Cutoff Rule:
+  // If the clock has reached or passed 6:00 PM (18:00 IST) on the lecture's date,
+  // any student marked 'Late' is automatically converted to 'Absent'.
+  const resolvedEntries = resolveLateAttendanceEntries(lecture, entries, at);
+  const convertedCount = resolvedEntries.filter(e => e.autoConvertedFromLate).length;
+
   if (enforceWindow) {
     const windowInfo = checkAttendanceCorrectionWindow(lecture, at);
     if (windowInfo.isExpired) {
@@ -878,7 +934,7 @@ export async function saveAttendanceSubmission({
 
     // Save in transaction
     await prisma.$transaction(async (tx) => {
-      for (const e of entries) {
+      for (const e of resolvedEntries) {
         await tx.attendanceRecord.upsert({
           where: {
             lectureId_studentId: { lectureId: lecture.id, studentId: e.studentId }
@@ -907,13 +963,13 @@ export async function saveAttendanceSubmission({
         data: {
           id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
           action: isCorrection ? 'Attendance corrected' : 'Attendance submitted',
-          details: `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${entries.length} student records.${isCorrection ? ' (Within 24h window)' : ''}`,
+          details: `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${resolvedEntries.length} student records.${isCorrection ? ' (Within 24h window)' : ''}${convertedCount > 0 ? ` [${convertedCount} late students auto-marked Absent past 6:00 PM cutoff]` : ''}`,
           actor
         }
       });
     });
 
-    return { count: entries.length, isCorrection };
+    return { count: resolvedEntries.length, isCorrection, autoConvertedLateCount: convertedCount };
   }
 
   // Fallback if PostgreSQL is offline
@@ -925,7 +981,7 @@ export async function saveAttendanceSubmission({
 
   // Fallback (only used when running without a DATABASE_URL)
   const isCorrectionFallback = fallback.attendance.some(a => a.lectureId === lecture.id && a.submitted);
-  for (const e of entries) {
+  for (const e of resolvedEntries) {
     const existingIdx = fallback.attendance.findIndex(a => a.lectureId === lecture.id && a.studentId === e.studentId);
     const rec = {
       id: `ATT-${lecture.id}-${e.studentId}`,
@@ -947,11 +1003,11 @@ export async function saveAttendanceSubmission({
 
   await logAuditEvent(
     isCorrectionFallback ? 'Attendance corrected' : 'Attendance submitted',
-    `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${entries.length} student records.${isCorrectionFallback ? ' (Within 24h window)' : ''}`,
+    `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${resolvedEntries.length} student records.${isCorrectionFallback ? ' (Within 24h window)' : ''}${convertedCount > 0 ? ` [${convertedCount} late students auto-marked Absent past 6:00 PM cutoff]` : ''}`,
     actor
   );
   saveFallbackState();
-  return { count: entries.length, isCorrection: isCorrectionFallback };
+  return { count: resolvedEntries.length, isCorrection: isCorrectionFallback, autoConvertedLateCount: convertedCount };
 }
 
 export async function saveAdminAttendanceCorrection({
@@ -968,11 +1024,13 @@ export async function saveAdminAttendanceCorrection({
   }
 
   const at = serverTime instanceof Date ? serverTime : new Date(serverTime);
+  const resolvedEntries = resolveLateAttendanceEntries(lecture, entries, at);
+  const convertedCount = resolvedEntries.filter(e => e.autoConvertedFromLate).length;
   const online = await testDatabaseConnection();
 
   if (online) {
     await prisma.$transaction(async (tx) => {
-      for (const e of entries) {
+      for (const e of resolvedEntries) {
         await tx.attendanceRecord.upsert({
           where: {
             lectureId_studentId: { lectureId: lecture.id, studentId: e.studentId }
@@ -1003,13 +1061,13 @@ export async function saveAdminAttendanceCorrection({
         data: {
           id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
           action: 'Admin post-deadline attendance correction',
-          details: `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${entries.length} records corrected. Reason: ${reason.trim()}`,
+          details: `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${resolvedEntries.length} records corrected. Reason: ${reason.trim()}${convertedCount > 0 ? ` [${convertedCount} late students auto-marked Absent past 6:00 PM cutoff]` : ''}`,
           actor
         }
       });
     });
 
-    return { count: entries.length, corrected: true };
+    return { count: resolvedEntries.length, corrected: true, autoConvertedLateCount: convertedCount };
   }
 
   // Fallback if PostgreSQL is offline
@@ -1020,7 +1078,7 @@ export async function saveAdminAttendanceCorrection({
   }
 
   // Fallback store
-  for (const e of entries) {
+  for (const e of resolvedEntries) {
     const existingIdx = fallback.attendance.findIndex(a => a.lectureId === lecture.id && a.studentId === e.studentId);
     const rec = {
       id: `ATT-${lecture.id}-${e.studentId}`,
@@ -1043,11 +1101,11 @@ export async function saveAdminAttendanceCorrection({
 
   await logAuditEvent(
     'Admin post-deadline attendance correction',
-    `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${entries.length} records corrected. Reason: ${reason.trim()}`,
+    `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${resolvedEntries.length} records corrected. Reason: ${reason.trim()}${convertedCount > 0 ? ` [${convertedCount} late students auto-marked Absent past 6:00 PM cutoff]` : ''}`,
     actor
   );
   saveFallbackState();
-  return { count: entries.length, corrected: true };
+  return { count: resolvedEntries.length, corrected: true, autoConvertedLateCount: convertedCount };
 }
 
 export async function saveBulkAttendanceSubmissions({
@@ -1082,7 +1140,7 @@ export async function saveBulkAttendanceSubmissions({
     }
 
     const allowed = new Set(lecture.studentIds);
-    if (entries.some(e => !allowed.has(e.studentId) || !['Present', 'Absent'].includes(e.status))) {
+    if (entries.some(e => !allowed.has(e.studentId) || !['Present', 'Absent', 'Late'].includes(e.status))) {
       const err = new Error(`Invalid student or status in submission for lecture "${lecture.subject}".`);
       err.status = 400;
       throw err;
@@ -1099,7 +1157,8 @@ export async function saveBulkAttendanceSubmissions({
       throw err;
     }
 
-    verifiedList.push({ lecture, entries });
+    const resolvedEntries = resolveLateAttendanceEntries(lecture, entries, at);
+    verifiedList.push({ lecture, entries: resolvedEntries });
   }
 
   const online = await testDatabaseConnection();

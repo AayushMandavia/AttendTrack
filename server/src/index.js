@@ -45,7 +45,7 @@ import {
   isTeacherAuthorizedForLecture,
   institutionalUsers
 } from './auth.js';
-import { checkAttendanceCorrectionWindow } from './attendance-window.js';
+import { checkAttendanceCorrectionWindow, isLateCutoffPassed } from './attendance-window.js';
 import {
   LUNCH_BREAK,
   DAILY_TIME_SLOTS,
@@ -344,19 +344,27 @@ app.get('/api/student/attendance', authenticate, requireRoles(ROLES.STUDENT), as
         }));
       letters = fb.letters.filter(l => l.studentId === student.id || (student.sapId && (l.sapId === student.sapId || l.studentId === student.sapId)));
     }
-    const present = records.filter(r => r.status === 'Present').length;
-    const absent = records.filter(r => r.status === 'Absent').length;
-    const totalRecorded = present + absent;
+    const resolvedRecords = records.map(r => {
+      if (r.status === 'Late' && r.lecture && isLateCutoffPassed(r.lecture)) {
+        return { ...r, status: 'Absent', autoConvertedFromLate: true };
+      }
+      return r;
+    });
+    const present = resolvedRecords.filter(r => r.status === 'Present').length;
+    const absent = resolvedRecords.filter(r => r.status === 'Absent').length;
+    const late = resolvedRecords.filter(r => r.status === 'Late').length;
+    const totalRecorded = present + absent + late;
     const summary = {
       totalRecorded,
       present,
       absent,
+      late,
       approvedLetters: letters.filter(l => l.status === 'Approved').length,
       rejectedLetters: letters.filter(l => l.status === 'Rejected').length,
       pendingLetters: letters.filter(l => l.status === 'Pending').length,
       attendancePct: totalRecorded > 0 ? Math.round((present / totalRecorded) * 100) : 100
     };
-    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: records, letters, summary });
+    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: resolvedRecords, letters, summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -431,19 +439,27 @@ app.get('/api/student/:sapId/attendance', authenticate, requireStudentSelfAccess
         }));
       letters = fb.letters.filter(l => l.studentId === student.id || (student.sapId && (l.sapId === student.sapId || l.studentId === student.sapId)));
     }
-    const present = records.filter(r => r.status === 'Present').length;
-    const absent = records.filter(r => r.status === 'Absent').length;
-    const totalRecorded = present + absent;
+    const resolvedRecords = records.map(r => {
+      if (r.status === 'Late' && r.lecture && isLateCutoffPassed(r.lecture)) {
+        return { ...r, status: 'Absent', autoConvertedFromLate: true };
+      }
+      return r;
+    });
+    const present = resolvedRecords.filter(r => r.status === 'Present').length;
+    const absent = resolvedRecords.filter(r => r.status === 'Absent').length;
+    const late = resolvedRecords.filter(r => r.status === 'Late').length;
+    const totalRecorded = present + absent + late;
     const summary = {
       totalRecorded,
       present,
       absent,
+      late,
       approvedLetters: letters.filter(l => l.status === 'Approved').length,
       rejectedLetters: letters.filter(l => l.status === 'Rejected').length,
       pendingLetters: letters.filter(l => l.status === 'Pending').length,
       attendancePct: totalRecorded > 0 ? Math.round((present / totalRecorded) * 100) : 100
     };
-    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: records, letters, summary });
+    res.json({ ok: true, studentId: student.id, sapId: student.sapId, attendance: resolvedRecords, letters, summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
