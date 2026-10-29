@@ -22,9 +22,17 @@
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
 </p>
 
+<p align="center">
+  <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/🌐%20Live%20Demo-https%3A%2F%2Fattendtrack.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="AttendTrack Official Live Demo" />
+  </a>
+</p>
+
 ---
 
 ## 🌟 Overview
+
+> 🚀 **Official Live Application**: [https://attendtrack.vercel.app/](https://attendtrack.vercel.app/)
 
 **AttendTrack** is a mission-critical, enterprise-grade attendance and exception management system architected specifically for collegiate institutions. Built with high-fidelity institutional branding, strict role-based access control, cryptographic HMAC-SHA256 sessions, automated OCR multi-student permission letter parsing, and tamper-evident audit logging.
 
