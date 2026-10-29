@@ -202,6 +202,14 @@ function IconList({ size = 18 }) {
   );
 }
 
+function IconCheck({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 // Transform raw audit logs into clean, coordinator-facing activity entries
 function parseCoordinatorLog(log, index) {
   if (!log) return null;
@@ -418,9 +426,11 @@ export default function CoordinatorPortalView({
   }, []);
 
   // Real Database Counts
-  const pendingLettersCount = useMemo(() => {
-    return (data.letters || []).filter(l => l.status === 'Pending').length;
+  const pendingLetters = useMemo(() => {
+    return (data.letters || []).filter(l => l.status === 'Pending');
   }, [data.letters]);
+
+  const pendingLettersCount = pendingLetters.length;
 
   const approvedLettersCount = useMemo(() => {
     return (data.letters || []).filter(l => l.status === 'Approved').length;
@@ -637,6 +647,32 @@ Verification Status: Approved by Convener.
     } catch (err) {
       setMessage(`Decision error: ${err.message}`);
       setIsError(true);
+    }
+  }
+
+  // Handle Bulk Decision for All Pending Letters
+  const [approvingAll, setApprovingAll] = useState(false);
+
+  async function handleApproveAllConfirm() {
+    if (pendingLetters.length === 0) {
+      setConfirmModal(null);
+      return;
+    }
+    setApprovingAll(true);
+    try {
+      if (typeof approveAllEligible === 'function') {
+        await approveAllEligible({ letterIds: pendingLetters.map(l => l.id) });
+      } else {
+        for (const l of pendingLetters) {
+          await decide(l.id, 'approve');
+        }
+      }
+      setConfirmModal(null);
+    } catch (err) {
+      setMessage(`Batch approval error: ${err.message}`);
+      setIsError(true);
+    } finally {
+      setApprovingAll(false);
     }
   }
 
@@ -1083,6 +1119,18 @@ Verification Status: Approved by Convener.
                     {multiSummary.duplicates > 0 && (
                       <span className="pill amber">Duplicates: {multiSummary.duplicates}</span>
                     )}
+                    {pendingLettersCount > 0 && (
+                      <button
+                        type="button"
+                        className="coord-btn-approve-all"
+                        style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: '11.5px' }}
+                        onClick={() => setConfirmModal({ type: 'approve-all' })}
+                        title={`Approve all ${pendingLettersCount} pending student letters`}
+                      >
+                        <IconCheck size={13} />
+                        <span>Approve All Extracted ({pendingLettersCount})</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -1144,6 +1192,17 @@ Verification Status: Approved by Convener.
                     <IconList size={20} />
                     <h2 className="coord-card-heading">Attendance Queue &amp; Records</h2>
                   </div>
+                  {pendingLettersCount > 0 && (
+                    <button
+                      type="button"
+                      className="coord-btn-approve-all"
+                      onClick={() => setConfirmModal({ type: 'approve-all' })}
+                      title={`Approve all ${pendingLettersCount} pending student letters at once`}
+                    >
+                      <IconCheck size={14} />
+                      <span>Approve All Pending ({pendingLettersCount})</span>
+                    </button>
+                  )}
                 </div>
 
                 <p className="coord-card-desc">
@@ -1181,6 +1240,18 @@ Verification Status: Approved by Convener.
                     >
                       Rejected ({rejectedLettersCount})
                     </button>
+
+                    {/* Prominent Approve All Button in Filter Row */}
+                    <button
+                      type="button"
+                      className={`coord-filter-pill coord-pill-approve-all ${pendingLettersCount === 0 ? 'disabled' : ''}`}
+                      disabled={pendingLettersCount === 0 || approvingAll}
+                      onClick={() => setConfirmModal({ type: 'approve-all' })}
+                      title={pendingLettersCount > 0 ? `Approve all ${pendingLettersCount} pending student letters at once` : 'No pending student letters to approve'}
+                    >
+                      <IconCheck size={13} />
+                      <span>{approvingAll ? 'Approving...' : `Approve All (${pendingLettersCount})`}</span>
+                    </button>
                   </div>
 
                   <div className="coord-search-wrap">
@@ -1206,7 +1277,21 @@ Verification Status: Approved by Convener.
                         <th className="coord-th-lecture">Missed Lecture</th>
                         <th className="coord-th-reason">Reason / Details</th>
                         <th className="coord-th-status">Status</th>
-                        <th className="coord-th-action">Action</th>
+                        <th className="coord-th-action">
+                          <div className="coord-th-action-wrap">
+                            <span>Action</span>
+                            {pendingLettersCount > 0 && (
+                              <button
+                                type="button"
+                                className="coord-th-approve-all-btn"
+                                onClick={() => setConfirmModal({ type: 'approve-all' })}
+                                title={`Bulk approve all ${pendingLettersCount} pending student letters`}
+                              >
+                                Approve All
+                              </button>
+                            )}
+                          </div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1585,8 +1670,80 @@ Verification Status: Approved by Convener.
         </main>
       </div>
 
-      {/* Confirmation Modal for Approval or Rejection */}
-      {confirmModal && (
+      {/* Confirmation Modal for Single or Bulk Approval / Rejection */}
+      {confirmModal && confirmModal.type === 'approve-all' ? (
+        <div className="coord-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="coord-modal-box" style={{ maxWidth: '620px' }}>
+            <div className="coord-modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="coord-approve-all-modal-icon">
+                  <IconCheck size={18} />
+                </span>
+                <h3 style={{ margin: 0 }}>Confirm Bulk Approval of Pending Letters</h3>
+              </div>
+              <button
+                type="button"
+                className="coord-modal-close-btn"
+                onClick={() => setConfirmModal(null)}
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="coord-modal-body">
+              <p style={{ fontSize: '13.5px', margin: '0 0 10px', color: '#1e293b' }}>
+                You are about to approve <b>{pendingLetters.length} student attendance letter{pendingLetters.length === 1 ? '' : 's'}</b> simultaneously.
+              </p>
+
+              {/* Scrollable list of pending students */}
+              <div className="coord-approve-all-list">
+                {pendingLetters.map((pl, pIdx) => (
+                  <div key={pl.id || pIdx} className="coord-approve-all-item">
+                    <div className="coord-aai-student">
+                      <span className="coord-aai-name">{pl.studentName}</span>
+                      <span className="coord-aai-sap">SAP: {pl.sapId || '—'} {pl.rollNo ? `· Roll: ${pl.rollNo}` : ''}</span>
+                    </div>
+                    <div className="coord-aai-lecture">
+                      <span className="coord-aai-sub">{pl.matchedSubject || pl.subject}</span>
+                      <span className="coord-aai-date">{pl.date} ({pl.startTime} - {pl.endTime})</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="coord-modal-callout green" style={{ marginTop: '14px' }}>
+                <span style={{ fontSize: '18px' }}>✓</span>
+                <div>
+                  <b>Authorized Batch Attendance Adjustment:</b>
+                  <p style={{ margin: 0, fontSize: '12.5px' }}>
+                    Approving all letters will update each student's lecture attendance status to <b>Present</b> across both Student and Teacher portals. This coordinator decision is permanently recorded in the system audit trail.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="coord-modal-footer">
+              <button
+                type="button"
+                className="proto-btn proto-btn-secondary"
+                onClick={() => setConfirmModal(null)}
+                disabled={approvingAll}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="proto-btn proto-btn-primary coord-modal-confirm-bulk-btn"
+                onClick={handleApproveAllConfirm}
+                disabled={approvingAll || pendingLetters.length === 0}
+              >
+                {approvingAll ? 'Approving All...' : `Confirm & Approve All (${pendingLetters.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : confirmModal && (
         <div className="coord-modal-backdrop" role="dialog" aria-modal="true">
           <div className="coord-modal-box">
             <div className="coord-modal-head">

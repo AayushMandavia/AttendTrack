@@ -10558,6 +10558,164 @@ body:has(.admin-portal-root) {
   margin-right: 4px;
 }
 
+/* Approve All Buttons & Bulk Approval Features */
+.coord-btn-approve-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border: 1px solid #15803d !important;
+  padding: 5px 13px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.3);
+  transition: all 0.15s ease-in-out;
+  white-space: nowrap;
+}
+
+.coord-btn-approve-all:hover:not(:disabled) {
+  background: #15803d !important;
+  box-shadow: 0 3px 6px rgba(22, 163, 74, 0.4);
+  transform: translateY(-1px);
+}
+
+.coord-btn-approve-all:disabled {
+  background: #94a3b8 !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+  transform: none;
+}
+
+.coord-filter-pill.coord-pill-approve-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ecfdf5 !important;
+  border-color: #6ee7b7 !important;
+  color: #047857 !important;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+
+.coord-filter-pill.coord-pill-approve-all:hover:not(:disabled) {
+  background: #10b981 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+}
+
+.coord-filter-pill.coord-pill-approve-all.disabled,
+.coord-filter-pill.coord-pill-approve-all:disabled {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.coord-th-action-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.coord-th-approve-all-btn {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.coord-th-approve-all-btn:hover {
+  background: #15803d;
+}
+
+.coord-approve-all-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.coord-approve-all-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coord-approve-all-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+
+.coord-aai-student {
+  display: flex;
+  flex-direction: column;
+}
+
+.coord-aai-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coord-aai-sap {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.coord-aai-lecture {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.coord-aai-sub {
+  font-weight: 600;
+  color: #073b70;
+}
+
+.coord-aai-date {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.coord-modal-confirm-bulk-btn {
+  background: #16a34a !important;
+  border-color: #15803d !important;
+}
+
+.coord-modal-confirm-bulk-btn:hover:not(:disabled) {
+  background: #15803d !important;
+}
+
 /* Pagination Controls */
 .coord-pagination-row {
   display: flex;

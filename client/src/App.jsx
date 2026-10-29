@@ -531,9 +531,11 @@ export default function App() {
     }
   }
 
-  async function approveAllEligible() {
-    const eligible = data.letters.filter(l => l.status === 'Pending');
-    if (eligible.length === 0) return;
+  async function approveAllEligible(options = {}) {
+    const eligible = (options?.letterIds && options.letterIds.length > 0)
+      ? data.letters.filter(l => options.letterIds.includes(l.id) && l.status === 'Pending')
+      : data.letters.filter(l => l.status === 'Pending');
+    if (eligible.length === 0) return { count: 0 };
 
     try {
       const r = await fetch(`${API}/letters/batch-decision`, {
@@ -545,21 +547,27 @@ export default function App() {
         body: JSON.stringify({
           letterIds: eligible.map(l => l.id),
           decision: 'approve',
-          actor: role
+          actor: role,
+          allowManualApproval: true
         })
       });
       const result = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setMessage(result.error || `Batch approval failed (HTTP ${r.status}).`);
+        const errMsg = result.error || `Batch approval failed (HTTP ${r.status}).`;
+        setMessage(errMsg);
         setIsError(true);
+        throw new Error(errMsg);
       } else {
-        setMessage(`Approved ${result.approved.length} eligible letters. Attendance records updated to Present.`);
+        const count = result.approved?.length ?? eligible.length;
+        setMessage(`Approved ${count} student attendance letters. Attendance records updated to Present.`);
         setIsError(false);
-        refresh();
+        await refresh();
+        return { count, ...result };
       }
     } catch (err) {
       setMessage(`Batch approval error: ${err.message}`);
       setIsError(true);
+      throw err;
     }
   }
 
