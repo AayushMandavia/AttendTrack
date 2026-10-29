@@ -1,3 +1,4 @@
+import fs from 'fs';
 import crypto from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
@@ -109,6 +110,86 @@ const fallback = {
   documents: [],
   logs: [...INITIAL_FALLBACK_LOGS]
 };
+
+// -------------------------------------------------------------
+// Reliable Persistence for Fallback State (Disk Backed)
+// -------------------------------------------------------------
+const isServerlessEnv = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const FALLBACK_STATE_DIR = process.env.FALLBACK_STATE_DIR || (
+  isServerlessEnv ? '/tmp' : path.join(__dirname, '..', 'storage')
+);
+const FALLBACK_STATE_FILE = path.join(FALLBACK_STATE_DIR, 'persistent_fallback_state.json');
+const BACKUP_SEED_FILE = path.join(__dirname, '..', 'backups', 'backup_attendtrack_2026-10-19T11-24-06-133Z.json');
+
+export function saveFallbackState() {
+  try {
+    if (!fs.existsSync(FALLBACK_STATE_DIR)) {
+      fs.mkdirSync(FALLBACK_STATE_DIR, { recursive: true });
+    }
+    const state = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      letters: fallback.letters,
+      documents: fallback.documents,
+      attendance: fallback.attendance,
+      logs: fallback.logs
+    };
+    const tmpFile = `${FALLBACK_STATE_FILE}.tmp.${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
+    fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2), 'utf8');
+    fs.renameSync(tmpFile, FALLBACK_STATE_FILE);
+  } catch (err) {
+    console.error('[FallbackState] CRITICAL: Failed to persist fallback state to disk:', err.message);
+    throw new Error(`Persistence failure: Could not commit record to disk storage (${err.message})`);
+  }
+}
+
+export function loadFallbackState() {
+  try {
+    if (fs.existsSync(FALLBACK_STATE_FILE)) {
+      const raw = fs.readFileSync(FALLBACK_STATE_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.letters)) fallback.letters = parsed.letters;
+      if (Array.isArray(parsed.documents)) fallback.documents = parsed.documents;
+      if (Array.isArray(parsed.attendance)) fallback.attendance = parsed.attendance;
+      if (Array.isArray(parsed.logs) && parsed.logs.length > 0) fallback.logs = parsed.logs;
+      console.log(`[FallbackState] Loaded persistent state from disk (${fallback.letters.length} letters, ${fallback.documents.length} docs, ${fallback.attendance.length} attendance records)`);
+      return;
+    }
+
+    if (fs.existsSync(BACKUP_SEED_FILE)) {
+      const rawBackup = fs.readFileSync(BACKUP_SEED_FILE, 'utf8');
+      const backupObj = JSON.parse(rawBackup);
+      if (backupObj?.data) {
+        if (Array.isArray(backupObj.data.attendanceLetters)) {
+          fallback.letters = backupObj.data.attendanceLetters;
+        }
+        if (Array.isArray(backupObj.data.documents)) {
+          fallback.documents = backupObj.data.documents;
+        }
+        if (Array.isArray(backupObj.data.attendanceRecords)) {
+          fallback.attendance = backupObj.data.attendanceRecords;
+        }
+        if (Array.isArray(backupObj.data.auditEvents) && backupObj.data.auditEvents.length > 0) {
+          fallback.logs = backupObj.data.auditEvents.map(e => ({
+            id: e.id,
+            action: e.action,
+            details: `${e.actor}: ${e.details}`,
+            actor: e.actor,
+            rawDetails: e.details,
+            at: e.timestamp
+          }));
+        }
+        console.log(`[FallbackState] Initialized fallback state from verified backup (${fallback.letters.length} letters, ${fallback.documents.length} docs)`);
+        saveFallbackState();
+      }
+    }
+  } catch (err) {
+    console.error('[FallbackState] Failed to load persistent state from disk:', err.message);
+  }
+}
+
+// Automatically load persisted fallback state on startup
+loadFallbackState();
 
 // -------------------------------------------------------------
 // Database Access Layer (Used by API Routes)
@@ -857,6 +938,7 @@ export async function saveAttendanceSubmission({
     `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${entries.length} student records.${isCorrectionFallback ? ' (Within 24h window)' : ''}`,
     actor
   );
+  saveFallbackState();
   return { count: entries.length, isCorrection: isCorrectionFallback };
 }
 
@@ -952,6 +1034,7 @@ export async function saveAdminAttendanceCorrection({
     `${lecture.subject} (${lecture.date} ${lecture.startTime}-${lecture.endTime}); ${entries.length} records corrected. Reason: ${reason.trim()}`,
     actor
   );
+  saveFallbackState();
   return { count: entries.length, corrected: true };
 }
 
@@ -1096,6 +1179,7 @@ export async function saveBulkAttendanceSubmissions({
     );
   }
 
+  saveFallbackState();
   return { totalLectures: verifiedList.length, totalRecords };
 }
 
@@ -1131,6 +1215,7 @@ export async function createDocumentRecord(data) {
     uploadTimestamp: new Date().toISOString()
   };
   fallback.documents.push(doc);
+  saveFallbackState();
   return doc;
 }
 
@@ -1216,6 +1301,7 @@ export async function queueAttendanceLetter(letterData, actor) {
     createdAt: new Date().toISOString()
   };
   fallback.letters.unshift(item);
+  saveFallbackState();
   await logAuditEvent('Attendance letter queued', `${letterData.studentName} (${letterData.studentId}), ${letterData.date}, ${letterData.validation}.${letterData.documentName ? ` (Attached: ${letterData.documentName})` : ''}`, actor);
   return item;
 }
@@ -1378,6 +1464,7 @@ export async function queueBatchAttendanceLetters(batchOrList = [], actor = 'Att
     await logAuditEvent('Attendance letter queued (multi-student)', `${item.studentName} (${item.studentId}), ${item.date}, ${item.validation}.${item.documentName ? ` (Attached: ${item.documentName})` : ''}`, actor);
     createdItems.push(item);
   }
+  saveFallbackState();
   return createdItems;
 }
 
@@ -1723,6 +1810,7 @@ export async function recordBatchLetterDecision({ letterIds = [], decision, acto
     }
   }
 
+  saveFallbackState();
   return { approved, rejected, skipped };
 }
 
@@ -2024,6 +2112,7 @@ export async function recordLetterDecision({ letterId, decision, actor, reason =
   item.reviewedBy = actor;
   item.reviewedAt = at.toISOString();
   invalidateStudentCache({ id: item.studentId, sapId: item.sapId });
+  saveFallbackState();
   return item;
 }
 
@@ -2068,6 +2157,24 @@ export function resetFallbackStore() {
   fallback.documents = [];
   fallback.logs = [...INITIAL_FALLBACK_LOGS];
   studentCache.clear();
+  try {
+    saveFallbackState();
+  } catch (e) {
+    console.warn('[FallbackState] Reset save warning:', e.message);
+  }
+}
+
+export function restoreFallbackFromSeed() {
+  if (fs.existsSync(BACKUP_SEED_FILE)) {
+    const rawBackup = fs.readFileSync(BACKUP_SEED_FILE, 'utf8');
+    const backupObj = JSON.parse(rawBackup);
+    if (backupObj?.data) {
+      if (Array.isArray(backupObj.data.attendanceLetters)) fallback.letters = [...backupObj.data.attendanceLetters];
+      if (Array.isArray(backupObj.data.documents)) fallback.documents = [...backupObj.data.documents];
+      if (Array.isArray(backupObj.data.attendanceRecords)) fallback.attendance = [...backupObj.data.attendanceRecords];
+      saveFallbackState();
+    }
+  }
 }
 
 export function getFallbackStore() {

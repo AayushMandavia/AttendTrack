@@ -182,20 +182,28 @@ export default function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       })
         .then(res => {
+          if (res.status === 401) {
+            handleLogout();
+            return null;
+          }
           if (res.ok) return res.json();
-          throw new Error('Session expired');
+          throw new Error(`Failed to verify session: ${res.status}`);
         })
         .then(d => {
+          if (!d) return;
           if (d.ok && d.user) {
             setCurrentUser(d.user);
             localStorage.setItem('attendtrack_user', JSON.stringify(d.user));
             loadAuthenticatedDashboard(authToken, d.user);
-          } else {
-            handleLogout();
           }
         })
-        .catch(() => {
-          handleLogout();
+        .catch(err => {
+          console.warn('[AttendTrack] Session verification network warning:', err.message);
+          if (currentUser) {
+            loadAuthenticatedDashboard(authToken, currentUser);
+          } else {
+            setDashboardLoading(false);
+          }
         });
     } else {
       setDashboardLoading(false);
@@ -274,21 +282,27 @@ export default function App() {
       refreshStudentData();
     }
     const interval = setInterval(() => {
-      refresh();
-      if (currentUser?.role === 'STUDENT') {
-        refreshStudentData();
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        refresh();
+        if (currentUser?.role === 'STUDENT') {
+          refreshStudentData();
+        }
       }
-    }, 10000);
-    const onFocus = () => {
-      refresh();
-      if (currentUser?.role === 'STUDENT') {
-        refreshStudentData();
+    }, 3000); // 3 seconds fast synchronization interval when active
+    const onFocusOrVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        refresh();
+        if (currentUser?.role === 'STUDENT') {
+          refreshStudentData();
+        }
       }
     };
-    window.addEventListener('focus', onFocus);
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
     };
   }, [authToken, currentUser, dashboardLoading]);
 
@@ -670,13 +684,43 @@ export default function App() {
     ? (studentPersonalData.profile || currentUser)
     : (data.students.find(s => s.id === (studentViewId || data.students[0]?.id)) || data.students[0]);
 
-  const studentAttendanceRecords = isStudent
-    ? studentPersonalData.attendance
-    : (currentStudent ? data.attendance.filter(a => a.studentId === currentStudent.id || a.sapId === currentStudent.sapId) : []);
+  const studentAttendanceRecords = useMemo(() => {
+    if (!currentStudent && !isStudent) return [];
+    const sid = currentStudent?.id || currentUser?.id;
+    const sap = currentStudent?.sapId || currentUser?.sapId || currentUser?.username;
 
-  const studentLetters = isStudent
-    ? studentPersonalData.letters
-    : (currentStudent ? data.letters.filter(l => l.studentId === currentStudent.id || l.sapId === currentStudent.sapId) : []);
+    const recordMap = new Map();
+    (data.attendance || []).forEach(a => {
+      if ((sid && a.studentId === sid) || (sap && (a.sapId === sap || a.studentId === sap))) {
+        recordMap.set(a.id || `${a.lectureId}-${a.studentId}`, a);
+      }
+    });
+
+    (studentPersonalData?.attendance || []).forEach(a => {
+      recordMap.set(a.id || `${a.lectureId}-${a.studentId}`, a);
+    });
+
+    return Array.from(recordMap.values()).sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+  }, [currentStudent, isStudent, currentUser, data.attendance, studentPersonalData?.attendance]);
+
+  const studentLetters = useMemo(() => {
+    if (!currentStudent && !isStudent) return [];
+    const sid = currentStudent?.id || currentUser?.id;
+    const sap = currentStudent?.sapId || currentUser?.sapId || currentUser?.username;
+
+    const letterMap = new Map();
+    (data.letters || []).forEach(l => {
+      if ((sid && l.studentId === sid) || (sap && (l.sapId === sap || l.studentId === sap))) {
+        letterMap.set(l.id, l);
+      }
+    });
+
+    (studentPersonalData?.letters || []).forEach(l => {
+      letterMap.set(l.id, l);
+    });
+
+    return Array.from(letterMap.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }, [currentStudent, isStudent, currentUser, data.letters, studentPersonalData?.letters]);
 
   const studentEnrolledLectures = useMemo(() => {
     if (!currentStudent) return [];

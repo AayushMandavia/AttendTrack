@@ -316,23 +316,33 @@ app.get('/api/student/attendance', authenticate, requireRoles(ROLES.STUDENT), as
     let letters = [];
     if (online) {
       records = await prisma.attendanceRecord.findMany({
-        where: { studentId: student.id },
+        where: {
+          OR: [
+            { studentId: student.id },
+            ...(student.sapId ? [{ studentId: student.sapId }] : [])
+          ]
+        },
         include: { lecture: true },
         orderBy: { submittedAt: 'desc' }
       });
       letters = await prisma.attendanceLetter.findMany({
-        where: { studentId: student.id },
+        where: {
+          OR: [
+            { studentId: student.id },
+            ...(student.sapId ? [{ sapId: student.sapId }, { studentId: student.sapId }] : [])
+          ]
+        },
         orderBy: { createdAt: 'desc' }
       });
     } else {
       const fb = getFallbackStore();
       records = fb.attendance
-        .filter(a => a.studentId === student.id || a.studentId === student.sapId)
+        .filter(a => a.studentId === student.id || (student.sapId && (a.studentId === student.sapId || a.sapId === student.sapId)))
         .map(a => ({
           ...a,
           lecture: fb.lectures.find(l => l.id === a.lectureId) || null
         }));
-      letters = fb.letters.filter(l => l.studentId === student.id || l.sapId === student.sapId);
+      letters = fb.letters.filter(l => l.studentId === student.id || (student.sapId && (l.sapId === student.sapId || l.studentId === student.sapId)));
     }
     const present = records.filter(r => r.status === 'Present').length;
     const absent = records.filter(r => r.status === 'Absent').length;
@@ -363,12 +373,17 @@ app.get('/api/student/letters', authenticate, requireRoles(ROLES.STUDENT), async
     let letters = [];
     if (online) {
       letters = await prisma.attendanceLetter.findMany({
-        where: { studentId: student.id },
+        where: {
+          OR: [
+            { studentId: student.id },
+            ...(student.sapId ? [{ sapId: student.sapId }, { studentId: student.sapId }] : [])
+          ]
+        },
         orderBy: { createdAt: 'desc' }
       });
     } else {
       const fb = getFallbackStore();
-      letters = fb.letters.filter(l => l.studentId === student.id || l.sapId === student.sapId);
+      letters = fb.letters.filter(l => l.studentId === student.id || (student.sapId && (l.sapId === student.sapId || l.studentId === student.sapId)));
     }
     res.json({ ok: true, studentId: student.id, sapId: student.sapId, letters });
   } catch (err) {
@@ -388,23 +403,33 @@ app.get('/api/student/:sapId/attendance', authenticate, requireStudentSelfAccess
     let letters = [];
     if (online) {
       records = await prisma.attendanceRecord.findMany({
-        where: { studentId: student.id },
+        where: {
+          OR: [
+            { studentId: student.id },
+            ...(student.sapId ? [{ studentId: student.sapId }] : [])
+          ]
+        },
         include: { lecture: true },
         orderBy: { submittedAt: 'desc' }
       });
       letters = await prisma.attendanceLetter.findMany({
-        where: { studentId: student.id },
+        where: {
+          OR: [
+            { studentId: student.id },
+            ...(student.sapId ? [{ sapId: student.sapId }, { studentId: student.sapId }] : [])
+          ]
+        },
         orderBy: { createdAt: 'desc' }
       });
     } else {
       const fb = getFallbackStore();
       records = fb.attendance
-        .filter(a => a.studentId === student.id || a.studentId === student.sapId)
+        .filter(a => a.studentId === student.id || (student.sapId && (a.studentId === student.sapId || a.sapId === student.sapId)))
         .map(a => ({
           ...a,
           lecture: fb.lectures.find(l => l.id === a.lectureId) || null
         }));
-      letters = fb.letters.filter(l => l.studentId === student.id || l.sapId === student.sapId);
+      letters = fb.letters.filter(l => l.studentId === student.id || (student.sapId && (l.sapId === student.sapId || l.studentId === student.sapId)));
     }
     const present = records.filter(r => r.status === 'Present').length;
     const absent = records.filter(r => r.status === 'Absent').length;
