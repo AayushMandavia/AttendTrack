@@ -2016,7 +2016,7 @@ Verification Status: Approved by Convener.
                 </div>
               </div>
               <p className="small muted">
-                Exemptions update the statutory lecture attendance calculation from Absent to Present with verified audit traceability.
+                Approved letters automatically update a student's lecture attendance from Absent to Present.
               </p>
             </div>
             <div className="coord-modal-footer">
@@ -2048,7 +2048,7 @@ Verification Status: Approved by Convener.
             </div>
             <div className="coord-modal-body">
               <p>
-                Export certified attendance and exemption reports for Head of Department review or statutory university submission.
+                Export attendance and exemption reports for department review.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
                 <button

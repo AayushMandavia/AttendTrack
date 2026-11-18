@@ -446,7 +446,7 @@ export default function TeacherPortalView({
     if (hasLate) {
       setStatuses(updated);
       if (setMessage) {
-        setMessage('⏱ 6:00 PM Late Cutoff Reached: Students marked Late have automatically been marked Absent per college attendance regulations.');
+        setMessage("⏱ It's past 6:00 PM — any students marked Late have been automatically updated to Absent.");
         if (setIsError) setIsError(false);
       }
     }
@@ -763,7 +763,7 @@ export default function TeacherPortalView({
           [studentId]: 'Absent'
         }));
         if (setMessage) {
-          setMessage('⏱ 6:00 PM Late Cutoff Passed: Students arriving late are automatically recorded as Absent per college attendance regulations.');
+          setMessage("⏱ It's past 6:00 PM — late arrivals are now automatically marked as Absent.");
           if (setIsError) setIsError(false);
         }
         return;
@@ -1078,16 +1078,16 @@ export default function TeacherPortalView({
                         onChange={e => handleLectureChange(e.target.value)}
                       >
                         {categorizedLectures.today.length > 0 && (
-                          <optgroup label="📅 Today's Scheduled Lectures (Live & Real-Time)">
+                          <optgroup label="📅 Today's Lectures">
                             {categorizedLectures.today.map(l => (
                               <option key={l.id} value={l.id}>
-                                {l.id === lectureTimeline.inProgress?.id ? '🟢 [HAPPENING NOW] ' : ''}{l.subject} · {l.startTime}–{l.endTime} ({l.className}) {l.room ? `· ${l.room}` : ''}
+                                {l.id === lectureTimeline.inProgress?.id ? '🟢 [LIVE] ' : ''}{l.subject} · {l.startTime}–{l.endTime} ({l.className}) {l.room ? `· ${l.room}` : ''}
                               </option>
                             ))}
                           </optgroup>
                         )}
                         {categorizedLectures.upcoming.length > 0 && (
-                          <optgroup label="⏭️ Upcoming Lectures (Future Dates)">
+                          <optgroup label="⏭️ Upcoming Lectures">
                             {categorizedLectures.upcoming.map(l => (
                               <option key={l.id} value={l.id}>
                                 {l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})
@@ -1096,7 +1096,7 @@ export default function TeacherPortalView({
                           </optgroup>
                         )}
                         {categorizedLectures.past.length > 0 && (
-                          <optgroup label="📁 Historical / Past Lectures">
+                          <optgroup label="📁 Past Lectures">
                             {categorizedLectures.past.map(l => (
                               <option key={l.id} value={l.id}>
                                 {l.subject} · {l.date} · {l.startTime}–{l.endTime} ({l.className})

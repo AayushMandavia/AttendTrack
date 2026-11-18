@@ -423,12 +423,39 @@ export default function StudentPortalView({
     documentName: 'Medical_Certificate_DJSCE.pdf'
   });
 
-  // Display identities matching SS1 / Reference
+  // Display identities
   const studentDisplayName = currentUser?.name || currentStudent?.name || 'Riya Shah';
   const studentInitials = studentDisplayName
     ? studentDisplayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : 'RS';
-  const studentDeptSem = `${currentStudent?.branch || currentUser?.branch || 'Computer Engineering'} • ${currentStudent?.semester ? 'SEM ' + currentStudent.semester : 'SEM 7'}`;
+
+  // 1 academic year = 2 semesters (Year 1: Sem 1-2, Year 2: Sem 3-4, Year 3: Sem 5-6, Year 4: Sem 7-8)
+  const derivedSem = useMemo(() => {
+    const explicitSem = currentStudent?.semester || currentUser?.semester;
+    if (explicitSem) {
+      const num = parseInt(String(explicitSem).replace(/\D/g, ''), 10);
+      if (!isNaN(num) && num >= 1 && num <= 8) return String(num);
+    }
+    const classStr = String(currentStudent?.classGroup || currentUser?.classGroup || '');
+    const yearMatch = classStr.match(/Year\s*(\d+)/i);
+    if (yearMatch) {
+      const yr = parseInt(yearMatch[1], 10);
+      if (yr >= 1 && yr <= 4) return String(yr * 2 - 1);
+    }
+    return '5';
+  }, [currentStudent?.semester, currentUser?.semester, currentStudent?.classGroup, currentUser?.classGroup]);
+
+  const displayClassGroup = useMemo(() => {
+    const base = currentStudent?.classGroup || 'EXTC — Year 3 / A';
+    const semNum = parseInt(derivedSem, 10);
+    if (!isNaN(semNum) && semNum >= 1 && semNum <= 8) {
+      const expectedYear = Math.ceil(semNum / 2);
+      return base.replace(/Year\s*\d+/i, `Year ${expectedYear}`);
+    }
+    return base;
+  }, [currentStudent?.classGroup, derivedSem]);
+
+  const studentDeptSem = `${currentStudent?.branch || currentUser?.branch || 'Computer Engineering'} • SEM ${derivedSem}`;
 
   // Time-of-day greeting
   const greetingText = useMemo(() => {
@@ -711,7 +738,7 @@ export default function StudentPortalView({
 
   // Notifications list with real student data hooks
   const masterNotifications = useMemo(() => {
-    const sem = currentStudent?.semester || '7';
+    const sem = derivedSem;
     const approvedLetter = (studentLetters || []).find(l => l.status === 'Approved') || {
       reference: 'REF-2026-MED-042',
       date: '6 Oct 2026',
@@ -943,7 +970,7 @@ export default function StudentPortalView({
                     SAP ID: <b>{currentStudent?.sapId || currentUser?.sapId || '60001240001'}</b>
                   </div>
                   <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                    {currentStudent?.classGroup || 'EXTC — Year 3 / A'}
+                    {displayClassGroup}
                   </div>
                 </div>
 
@@ -1431,14 +1458,14 @@ export default function StudentPortalView({
                 <div className="attendance-compliance-card">
                   <div className="compliance-card-header">
                     <div className="compliance-card-title-group">
-                      <h3 className="compliance-card-title">Statutory Attendance Compliance Monitor</h3>
+                      <h3 className="compliance-card-title">Attendance Requirement Tracker</h3>
                       <p className="compliance-card-subtitle">
-                        Minimum Statutory Threshold: 75.0% (Overall attendance including approved leaves)
+                        Minimum Required: 75.0% (Overall attendance including approved leaves)
                       </p>
                     </div>
                     <div>
                       <span className={`compliance-status-pill ${isCompliant ? 'compliant' : 'deficit'}`}>
-                        {isCompliant ? 'STATUTORILY COMPLIANT' : `ATTENDANCE DEFICIT (${deficitVal}%)`}
+                        {isCompliant ? 'ON TRACK (75%+)' : `BELOW 75% (${deficitVal}% SHORT)`}
                       </span>
                     </div>
                   </div>
@@ -1704,7 +1731,7 @@ export default function StudentPortalView({
                   <div className="modal-backdrop" onClick={() => setSelectedLectureForModal(null)}>
                     <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
                       <div className="modal-header">
-                        <h3 style={{ margin: 0, fontSize: '18px', color: '#092c4c' }}>Lecture Attendance Dossier</h3>
+                        <h3 style={{ margin: 0, fontSize: '18px', color: '#092c4c' }}>Lecture Attendance Details</h3>
                         <button type="button" className="close-btn" onClick={() => setSelectedLectureForModal(null)}>×</button>
                       </div>
                       <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '16px' }}>
@@ -1744,7 +1771,7 @@ export default function StudentPortalView({
                           if (approvedLetter) {
                             return (
                               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px 14px', borderRadius: '6px' }}>
-                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#15803d' }}>Official Statutory Exemption Applied</div>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#15803d' }}>Approved Exemption Letter Applied</div>
                                 <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>
                                   Document: {approvedLetter.documentName || approvedLetter.reference || 'Official_Approval.pdf'}
                                 </div>
@@ -1756,7 +1783,7 @@ export default function StudentPortalView({
                       </div>
                       <div className="modal-footer" style={{ marginTop: '18px', display: 'flex', justifyContent: 'flex-end' }}>
                         <button type="button" className="small-btn primary" onClick={() => setSelectedLectureForModal(null)}>
-                          Close Dossier
+                          Close
                         </button>
                       </div>
                     </div>
