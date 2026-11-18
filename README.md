@@ -12,18 +12,18 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Node.js-v20+-339933?style=flat&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/React-v18-61DAFB?style=flat&logo=react&logoColor=black" alt="React" />
-  <img src="https://img.shields.io/badge/Vite-v6-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/PostgreSQL-v15-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat&logo=prisma&logoColor=white" alt="Prisma" />
-  <img src="https://img.shields.io/badge/OCR-Tesseract.js-FF6F00?style=flat" alt="OCR" />
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
+  <img src="https://img.shields.io/badge/Node.js-v20+-339933?style=for-the-badge&logo=node.js&logoColor=white&labelColor=0f172a" alt="Node.js" />
+  <img src="https://img.shields.io/badge/React-v18-087ea4?style=for-the-badge&logo=react&logoColor=61DAFB&labelColor=0f172a" alt="React" />
+  <img src="https://img.shields.io/badge/Vite-v6-646CFF?style=for-the-badge&logo=vite&logoColor=white&labelColor=0f172a" alt="Vite" />
+  <img src="https://img.shields.io/badge/PostgreSQL-v15-336791?style=for-the-badge&logo=postgresql&logoColor=white&labelColor=0f172a" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white&labelColor=0f172a" alt="Prisma" />
+  <img src="https://img.shields.io/badge/OCR-Tesseract.js-d97706?style=for-the-badge&labelColor=0f172a" alt="OCR" />
+  <img src="https://img.shields.io/badge/License-MIT-0f766e?style=for-the-badge&labelColor=0f172a" alt="License" />
 </p>
 
 <p align="center">
   <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/🌐%20Live%20App-https%3A%2F%2Fattendtrack.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="AttendTrack Live Application" />
+    <img src="https://img.shields.io/badge/Live%20Portal-attendtrack.vercel.app-087b70?style=for-the-badge&logo=vercel&logoColor=white&labelColor=092c4c" alt="AttendTrack Live Application" />
   </a>
 </p>
 
