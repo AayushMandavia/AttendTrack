@@ -1,9 +1,13 @@
-# 🎓 AttendTrack — Enterprise Academic Attendance & Exception Management Platform
+# 🎓 AttendTrack — Academic Attendance & Exception Management
 
 <p align="center">
   <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
-    <img src="client/public/djsce_crest.png#gh-light-mode-only" alt="DJSCE Crest" width="140" />
-    <img src="client/public/djsce_crest_dark.png#gh-dark-mode-only" alt="DJSCE Crest" width="140" />
+    <img src="client/public/djsce_crest.png#gh-light-mode-only" alt="DJSCE Crest" width="120" />
+    <img src="client/public/djsce_crest_dark.png#gh-dark-mode-only" alt="DJSCE Crest" width="120" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
+    <img src="client/public/djsce_svkm_logo.png" alt="SVKM's DJSCE Logo" width="220" />
   </a>
 </p>
 
@@ -24,7 +28,7 @@
 
 <p align="center">
   <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/🌐%20Live%20Demo-https%3A%2F%2Fattendtrack.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="AttendTrack Official Live Demo" />
+    <img src="https://img.shields.io/badge/🌐%20Live%20App-https%3A%2F%2Fattendtrack.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="AttendTrack Live Application" />
   </a>
 </p>
 
@@ -32,206 +36,204 @@
 
 ## 🌟 Overview
 
-> 🚀 **Official Live Application**: [https://attendtrack.vercel.app/](https://attendtrack.vercel.app/)
+> 🚀 **Live Website**: [https://attendtrack.vercel.app/](https://attendtrack.vercel.app/)
 
-**AttendTrack** is a mission-critical, enterprise-grade attendance and exception management system architected specifically for collegiate institutions. Built with high-fidelity institutional branding, strict role-based access control, cryptographic HMAC-SHA256 sessions, automated OCR multi-student permission letter parsing, and tamper-evident audit logging.
-
-It guarantees institutional integrity through automated rules like the **server-enforced 24-hour attendance marking window**, conservative OCR matching, private S3/local object storage, and full-featured portals for **Administrators**, **Department Attendance Coordinators**, **Faculty Teachers**, and **Enrolled Students**.
+**AttendTrack** is a college attendance and permission-letter management system built for DJSCE. It brings Administrators, Department Coordinators, Faculty Teachers, and Students onto one platform with real-time timetable sync, automated document parsing, and clear attendance rules.
 
 ---
 
-## ✨ Key Features
+## 🖼️ Platform Previews
 
-### 🏛️ Authentic Institutional Experience
-- **Ultra-HD Transparent College Crest**: Custom vector-clean 950×861px transparent crest with dynamic light sweep shimmer animation on initial launch.
-- **1.5s Role-Specific Skeleton Preloaders**: Instant visual layout preservation with shimmer placeholders matching each portal's exact geometry, preventing layout shift or UI flickering during asynchronous data fetches.
-- **Institutional Topbar & Navigation**: DJSCE branding, NAAC 'A' grade credential strip, live date capsules, notification badges, and authenticated profile dropdowns with role-based routing.
-
-### 👥 4 Specialized Role Portals
-1. **👑 College Administration**:
-   - Master student roster management (live directory, CSV/XLSX bulk preview, pre-commit validation).
-   - Recurring master timetable scheduling (Monday–Saturday, 9 slots/day, break handling).
-   - Post-deadline attendance correction workflow with mandatory justification and audit logging.
-   - Comprehensive compliance audit logs across all users.
-
-2. **📋 Attendance Coordinator (EXTC / Branch)**:
-   - Official permission letter intake supporting PDF, DOCX, JPG, and PNG.
-   - Bounded-queue OCR extraction detecting student names, 11-digit SAP IDs, and missed lecture slots.
-   - Ambiguity protection: prevents approval of overlapping or uncertain student letters.
-   - Batch approval/rejection with immediate PostgreSQL attendance status updating.
-   - Live roster verification badge (`PostgreSQL Connected`).
-
-3. **👨‍🏫 Faculty / Teacher Portal**:
-   - Class-wise lecture selection and live student rosters.
-   - **Enforced 24-Hour Marking Window**: Strict server-side validation preventing backdated edits past 24 hours.
-   - Real-time attendance counters (`Present`, `Absent`, `Defaulter` tracking).
-
-4. **🎓 Student Self-Service Portal**:
-   - Personal attendance breakdown by subject with percentage indicators and progress bars.
-   - Weekly timetable schedule and upcoming class preview.
-   - Status tracking of submitted medical leave and event exception letters.
-   - Strict student privacy boundary: queries for any other student's data return `403 STUDENT_PRIVACY_VIOLATION`.
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <b>Institutional Login</b><br>
+      <img src="docs/presentation-screenshots/01-login.png" alt="Login Page" width="100%" />
+    </td>
+    <td align="center" width="50%">
+      <b>Admin Control Center</b><br>
+      <img src="docs/presentation-screenshots/02-admin-dashboard.png" alt="Admin Dashboard" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>Teacher Real-Time Attendance</b><br>
+      <img src="docs/presentation-screenshots/03-teacher-attendance.png" alt="Teacher Attendance" width="100%" />
+    </td>
+    <td align="center" width="50%">
+      <b>Coordinator Letter Auto-Approval</b><br>
+      <img src="docs/presentation-screenshots/04-coordinator-approval.png" alt="Coordinator Approval" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>Student Attendance &amp; 75% Tracker</b><br>
+      <img src="docs/presentation-screenshots/05-student-portal.png" alt="Student Portal" width="100%" />
+    </td>
+    <td align="center" width="50%">
+      <b>Weekly Master Timetable</b><br>
+      <img src="docs/presentation-screenshots/06-timetable-view.png" alt="Timetable View" width="100%" />
+    </td>
+  </tr>
+</table>
 
 ---
 
-## 🔒 Security & Architecture
+## 🔄 Core Workflows & Flowcharts
 
-```
-   ┌────────────────────────────────────────────────────────┐
-   │                  AttendTrack Client                    │
-   │           (React 18 + Vite · Design Tokens)            │
-   └───────────────────────────┬────────────────────────────┘
-                               │
-                      Authorization Bearer
-                   (HMAC-SHA256 Signed Token)
-                               │
-   ┌───────────────────────────▼────────────────────────────┐
-   │                  Express API Server                    │
-   │   - 4-Role Middleware Authorization                    │
-   │   - 24-Hour Edit Window Server Enforcement             │
-   │   - Magic-Byte MIME Validation (PDF / Images / DOCX)   │
-   │   - Tesseract.js Worker Queue (Bounded Memory)         │
-   │   - Rate-Limited Token Revocation Blocklist            │
-   └───────────────┬────────────────────────┬───────────────┘
-                   │                        │
-       Private Object Storage      PostgreSQL Database
-       (Local / S3 Bucket)         (Prisma Client ORM)
-       Zero Public URL Access      Strict FK Relations
+### 1. Real-Time Attendance, 1-Hour Late & 6:00 PM Absent Cutoff
+
+```mermaid
+flowchart LR
+    A[Scheduled Lecture Ends] --> B{Attendance Marked?}
+    B -- "Marked Present / Absent" --> C[Saved to Attendance Log]
+    B -- "Marked Late" --> D{Before 6:00 PM IST?}
+    D -- "Yes" --> E[Status: Late]
+    D -- "No (After 6:00 PM)" --> F[Auto-Converted to Absent]
+    B -- "Not Marked" --> G{1 Hour Elapsed?}
+    G -- "Within 1 Hour" --> H[Status: Scheduled]
+    G -- "After 1 Hour" --> D
 ```
 
-- **Zero Public Document URLs**: Uploaded medical and event excuse letters are stored privately in encrypted object storage (`storage/private_files` or S3) and streamed strictly via authenticated endpoints with `X-Content-Type-Options: nosniff`.
-- **HMAC-SHA256 Stateless Tokens**: Cryptographically signed tokens with configurable TTL and instantaneous revocation blocklists.
-- **Permanent Audit Trail**: All mutations (attendance submission, overrides, letter decisions) write immutable audit records with timestamps and actor details.
+- **Live Clock Sync**: Opening the Teacher portal automatically loads the lecture happening right now (e.g., opening at 17:00 loads the 17:00–18:00 lecture).
+- **24-Hour Edit Window**: Teachers can mark or update attendance within 24 hours of a lecture's end time. After 24 hours, edits require Admin review with a mandatory reason.
 
 ---
 
-## 🚀 Quick Start Guide
+### 2. Coordinator Letter Upload & Auto-Approval Pipeline
+
+```mermaid
+flowchart LR
+    U["Upload Letter<br/>(PDF / DOCX / JPG / PNG)"] --> P["OCR & Document Parser<br/>(Tesseract.js / Mammoth)"]
+    P --> V{"Match 11-Digit SAP ID<br/>& Lecture Slot"}
+    V -- "Verified Match" --> A["Auto-Approved Immediately"]
+    A --> M["Attendance Marked Present<br/>(Exempted)"]
+    V -- "Unmatched / Ambiguous" --> Q["Flagged in Review Queue"]
+```
+
+- **Zero Manual Clicking**: Uploading a valid permission letter (single or multi-student) automatically approves verified students and marks their attendance as **Present**.
+
+---
+
+### 3. System Architecture
+
+```mermaid
+flowchart TB
+    Client["React 18 + Vite Frontend<br/>(Admin · Coordinator · Teacher · Student)"] -->|Bearer Token HMAC-SHA256| API["Express.js API Server"]
+    API --> Auth["4-Role RBAC & Privacy Guards"]
+    API --> Rules["24h Window & 6:00 PM Cutoff Engine"]
+    API --> Queue["Bounded OCR / DOCX Extraction Queue"]
+    API --> DB[("PostgreSQL + Prisma ORM")]
+    API --> Store[("Private File Storage (Local / S3)")]
+```
+
+---
+
+## 👥 Role Portals at a Glance
+
+| Portal | Key Capabilities |
+| :--- | :--- |
+| **👑 Admin** | Master student roster (CSV/XLSX bulk import with validation), weekly timetable scheduling, post-24h attendance corrections, and full audit logs. |
+| **📋 Coordinator** | Upload single/multi-student permission letters (PDF, DOCX, PNG, JPG) with automatic SAP ID matching, instant approval, and attendance exemption updates. |
+| **👨‍🏫 Teacher** | Real-time lecture selection synced to the current clock, live student roster, 1-click `Present` / `Absent` / `Late` marking, and 24-hour edit window. |
+| **🎓 Student** | Attendance dashboard with today's lectures pinned on top, 75% requirement progress tracker, weekly timetable, and leave/exemption letter status. |
+
+---
+
+## 🚀 Local Setup Guide
 
 ### 1. Prerequisites
 - **Node.js** v18+ (Node.js 20 recommended)
-- **PostgreSQL** v14+ (Local service or Docker container)
+- **PostgreSQL** v14+ (or built-in local fallback store for quick testing)
 
-### 2. Installation
+### 2. Install Dependencies
 ```bash
-# Clone the repository
 git clone https://github.com/AayushMandavia/AttendTrack.git
 cd AttendTrack
 
-# Install backend dependencies
-cd server
-npm install
+# Backend
+cd server && npm install
 
-# Install frontend dependencies
-cd ../client
-npm install
+# Frontend
+cd ../client && npm install
 ```
 
-### 3. Environment Configuration
+### 3. Environment Setup
 Create `server/.env` based on `server/.env.example`:
 ```env
-# Database Connection
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/attendtrack?schema=public"
-
-# Document Storage: 'local' (development fallback) or 's3' (cloud storage)
 STORAGE_PROVIDER=local
 STORAGE_LOCAL_DIR=./storage/private_files
-
-# Application Settings
 PORT=4000
 AUTH_SECRET="attendtrack-hmac-sha256-auth-secret-key-2026"
 MAX_FILE_SIZE_BYTES=10485760
 ```
 
-### 4. Database Setup & Seeding
+### 4. Database Setup & Seed
 ```bash
 cd server
-# Generate Prisma Client & Run Migrations
 npx prisma generate
 npx prisma migrate deploy
-
-# Seed Recurring Timetable and Demo Roster
 node prisma/seed-timetable.js
 node prisma/seed-synthetic-50.js
 ```
 
-### 5. Launch the Application
-In separate terminals:
-
+### 5. Run Locally
 ```bash
 # Terminal 1: Backend API (Port 4000)
-cd server
-npm run dev
+cd server && npm run dev
 
-# Terminal 2: Frontend Web App (Port 5173)
-cd client
-npm run dev
+# Terminal 2: Frontend App (Port 5173)
+cd client && npm run dev
 ```
-
-Visit **`http://localhost:5173`** to access AttendTrack.
+Open **`http://localhost:5173`** in your browser.
 
 ---
 
 ## 🧪 Testing & Verification
 
-AttendTrack includes a comprehensive automated test suite covering authentication, role boundaries, the 24-hour edit restriction, and OCR parsing:
-
 ```bash
-cd server
-npm test
-```
+# Run backend test suites (auth, 24h rule, 6pm cutoff, unmarked late rule, SAP verification, OCR)
+cd server && npm test
 
-Test suite coverage:
-- `authentication-and-roles.test.js`: Token issuance, invalidation, role-based route guard checks.
-- `attendance-24h-rule.test.js`: Server-side rejection of attendance submissions past 24-hour deadline.
-- `strict-sap-verification.test.js`: 11-digit numeric SAP ID format preservation.
-- `workflow03-multi-student-extraction-regression.test.js`: Tabular student list parsing from uploaded letters.
-- `cache-invalidation-and-buffer-cleanup.test.js`: Upload buffer release and memory bounds.
-
-Frontend production bundle verification:
-```bash
-cd client
-npm run build
+# Build frontend production bundle
+cd client && npm run build
 ```
 
 ---
 
-## 📁 Repository Structure
+## 📁 Project Structure
 
 ```
 AttendTrack/
-├── client/                     # Frontend Application (React + Vite)
-│   ├── public/                 # Static branding assets & SVG icons
-│   │   └── djsce_crest.png     # Ultra-HD transparent college crest
+├── client/                     # React 18 + Vite Frontend
+│   ├── public/                 # DJSCE Logos & Crests
 │   └── src/
-│       ├── AdminPortalView.jsx       # Administrator management dashboard
-│       ├── CoordinatorPortalView.jsx # Attendance coordinator review portal
-│       ├── TeacherPortalView.jsx     # Teacher attendance marking view
-│       ├── StudentPortalView.jsx     # Student self-service dashboard
-│       ├── LoginPage.jsx             # Institutional login experience
-│       ├── RoleSkeletonDashboard.jsx # 1.5s post-login skeleton loader
-│       ├── TransparentPreloader.jsx  # Initial website launch animation
-│       └── styles.css                # CSS design system & tokens
-├── server/                     # Backend API Server (Node.js + Express)
-│   ├── prisma/                 # PostgreSQL schema, migrations & seed scripts
+│       ├── AdminPortalView.jsx       # Admin dashboard & roster tools
+│       ├── CoordinatorPortalView.jsx # Letter upload & exemption management
+│       ├── TeacherPortalView.jsx     # Real-time attendance marking
+│       ├── StudentPortalView.jsx     # Student attendance & 75% tracker
+│       ├── attendanceUtils.js        # Live clock, 1h late & 6pm cutoff helpers
+│       └── LoginPage.jsx             # Institutional login view
+├── server/                     # Node.js + Express Backend
+│   ├── prisma/                 # Database schema, migrations & seeds
 │   ├── src/
-│   │   ├── auth.js             # Authentication, token generation, role guards
-│   │   ├── db.js               # Prisma client database access layer
-│   │   ├── ocr.js              # Tesseract.js OCR extraction engine
-│   │   ├── storage.js          # Private file storage abstraction (Local/S3)
-│   │   └── index.js            # Express routes and server endpoints
-│   └── test/                   # Automated backend regression test suites
-├── docs/                       # Architecture specifications & API contracts
-│   └── API_CONTRACT.md         # Authoritative REST API contract
-├── CURRENT_STATUS.md           # Implementation status and release notes
-└── README.md                   # Project documentation
+│   │   ├── attendance-window.js# 24h edit window, 1h late & 6pm cutoff rules
+│   │   ├── auth.js             # HMAC-SHA256 tokens & role middleware
+│   │   ├── db.js               # Prisma & fallback persistence layer
+│   │   ├── ocr.js              # Tesseract.js OCR & DOCX parser
+│   │   └── index.js            # REST API routes
+│   └── test/                   # Automated test suites
+├── docs/                       # Specs, API contracts & screenshots
+└── README.md
 ```
 
 ---
 
 ## 📜 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+Licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <b>AttendTrack</b> — Developed for Dwarkadas J. Sanghvi College of Engineering.
+  <b>AttendTrack</b> — Built for Dwarkadas J. Sanghvi College of Engineering.
 </p>
