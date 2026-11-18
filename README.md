@@ -2,12 +2,7 @@
 
 <p align="center">
   <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
-    <img src="client/public/djsce_crest.png#gh-light-mode-only" alt="DJSCE Crest" width="120" />
-    <img src="client/public/djsce_crest_dark.png#gh-dark-mode-only" alt="DJSCE Crest" width="120" />
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://attendtrack.vercel.app/" target="_blank" rel="noopener noreferrer">
-    <img src="client/public/djsce_svkm_logo.png" alt="SVKM's DJSCE Logo" width="220" />
+    <img src="client/public/djsce_crest.png" alt="DJSCE Crest" width="140" />
   </a>
 </p>
 
