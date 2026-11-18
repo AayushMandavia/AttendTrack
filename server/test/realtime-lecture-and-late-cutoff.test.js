@@ -89,3 +89,4 @@ test('Real-Time Lecture & 6:00 PM Late Cutoff Rule Suite', async (t) => {
     assert.equal(stu2Record.status, 'Absent', 'Student marked Late after 6:00 PM must be stored as Absent');
   });
 });
+

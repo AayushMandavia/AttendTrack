@@ -12,6 +12,7 @@ export const COLLEGE_TIMEZONE = process.env.COLLEGE_TIMEZONE || 'Asia/Kolkata';
 export const CORRECTION_WINDOW_HOURS = 24;
 export const CORRECTION_WINDOW_MS = CORRECTION_WINDOW_HOURS * 60 * 60 * 1000;
 export const LATE_CUTOFF_TIME = '18:00'; // 6:00 PM cutoff for Late attendance auto-conversion to Absent
+export const UNMARKED_LATE_HOURS = 1; // Unmarked attendance becomes Late after 1 hour from scheduled end time
 
 /**
  * Parses date ("YYYY-MM-DD") and time ("HH:MM") into an exact Date object
@@ -114,6 +115,58 @@ export function isLateCutoffPassed(lecture, currentTime = new Date(), timeZone =
   if (!cutoff || isNaN(cutoff.getTime())) return false;
   const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
   return now.getTime() >= cutoff.getTime();
+}
+
+/**
+ * Calculates the exact 1-hour post-lecture deadline when unmarked attendance becomes Late.
+ */
+export function getUnmarkedLateDeadline(lecture, timeZone = COLLEGE_TIMEZONE) {
+  const endTime = getLectureScheduledEndTime(lecture, timeZone);
+  if (!endTime || isNaN(endTime.getTime())) return null;
+  return new Date(endTime.getTime() + (UNMARKED_LATE_HOURS * 60 * 60 * 1000));
+}
+
+/**
+ * Evaluates whether 1 hour has elapsed since lecture scheduled end time without attendance being marked.
+ */
+export function isUnmarkedLateWindowPassed(lecture, currentTime = new Date(), timeZone = COLLEGE_TIMEZONE) {
+  const deadline = getUnmarkedLateDeadline(lecture, timeZone);
+  if (!deadline || isNaN(deadline.getTime())) return false;
+  const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
+  return now.getTime() >= deadline.getTime();
+}
+
+/**
+ * Resolves the institutional attendance status for a lecture session:
+ * 1. If an explicit status exists (e.g. from teacher submission or approved letter):
+ *    - 'Present': remains 'Present'.
+ *    - 'Late': if 6:00 PM cutoff has passed, converts to 'Absent'; else remains 'Late'.
+ *    - 'Absent': remains 'Absent'.
+ * 2. If NO attendance was marked (unmarked/scheduled):
+ *    - If 1 hour has elapsed after lecture end (isUnmarkedLateWindowPassed):
+ *      - If 6:00 PM cutoff has passed: automatically 'Absent'.
+ *      - Else: automatically 'Late'.
+ *    - Otherwise: 'Scheduled'.
+ */
+export function resolveAttendanceStatusForSession(lecture, existingStatus = null, currentTime = new Date(), timeZone = COLLEGE_TIMEZONE) {
+  const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
+
+  if (existingStatus) {
+    if (existingStatus === 'Late') {
+      return isLateCutoffPassed(lecture, now, timeZone) ? 'Absent' : 'Late';
+    }
+    return existingStatus;
+  }
+
+  // No explicit attendance record exists yet
+  if (lecture && isUnmarkedLateWindowPassed(lecture, now, timeZone)) {
+    if (isLateCutoffPassed(lecture, now, timeZone)) {
+      return 'Absent';
+    }
+    return 'Late';
+  }
+
+  return 'Scheduled';
 }
 
 /**

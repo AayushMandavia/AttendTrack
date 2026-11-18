@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import TimetableSection from './TimetableSection.jsx';
 import DemoNotice from './DemoNoticeModal.jsx';
+import { getLocalDateStr, resolveAttendanceStatusForSession } from './attendanceUtils.js';
 
 function IconDashboard({ size = 18 }) {
   return (
@@ -483,18 +484,28 @@ export default function StudentPortalView({
       const matchedRejected = matchedLetters.find(l => l.status === 'Rejected') || null;
       const matchedPending = matchedLetters.find(l => l.status === 'Pending') || null;
 
+      const rawStatus = r.status || null;
+      const initialStatus = matchedApproved ? 'Present' : rawStatus;
+      const sessionObj = {
+        id,
+        date: dateStr,
+        startTime: lec?.startTime || r.startTime || '10:00',
+        endTime: lec?.endTime || r.endTime || '11:00'
+      };
+      const finalStatus = resolveAttendanceStatusForSession(sessionObj, initialStatus);
+
       liveItems.push({
         id,
         date: dateStr,
         displayDate: dateStr,
-        startTime: lec?.startTime || r.startTime || '10:00',
-        endTime: lec?.endTime || r.endTime || '11:00',
+        startTime: sessionObj.startTime,
+        endTime: sessionObj.endTime,
         subject: subj,
         type: subj.includes('Lab') ? 'Practical' : subj.includes('Tutorial') ? 'Tutorial' : 'Lecture',
         className: lec?.className || defaultClassGroup,
         faculty: lec?.faculty || 'Prof. Sharma',
         room: lec?.room || 'LH-201',
-        status: r.status || (matchedApproved ? 'Present' : 'Scheduled'),
+        status: finalStatus,
         approvedLetter: matchedApproved,
         rejectedLetter: matchedRejected,
         pendingLetter: matchedPending,
@@ -514,24 +525,47 @@ export default function StudentPortalView({
       const matchedRejected = matchedLetters.find(l => l.status === 'Rejected') || null;
       const matchedPending = matchedLetters.find(l => l.status === 'Pending') || null;
 
+      const initialStatus = matchedApproved ? 'Present' : null;
+      const sessionObj = {
+        id: lec.id,
+        date: dateStr,
+        startTime: lec.startTime || '10:00',
+        endTime: lec.endTime || '11:00'
+      };
+      const finalStatus = resolveAttendanceStatusForSession(sessionObj, initialStatus);
+
       liveItems.push({
         id: lec.id,
         date: dateStr,
         displayDate: dateStr,
-        startTime: lec.startTime || '10:00',
-        endTime: lec.endTime || '11:00',
+        startTime: sessionObj.startTime,
+        endTime: sessionObj.endTime,
         subject: subj,
         type: subj.includes('Lab') ? 'Practical' : subj.includes('Tutorial') ? 'Tutorial' : 'Lecture',
         className: lec.className || defaultClassGroup,
         faculty: lec.faculty || 'Prof. Sharma',
         room: lec.room || 'LH-201',
-        status: matchedApproved ? 'Present' : 'Scheduled',
+        status: finalStatus,
         approvedLetter: matchedApproved,
         rejectedLetter: matchedRejected,
         pendingLetter: matchedPending,
         isOct2026: String(dateStr).startsWith('2026-10') || String(dateStr).includes('Oct 2026')
       });
     }
+
+    // Sort: Today's date and lectures at the very top, followed descending by date and time
+    const todayStr = getLocalDateStr(new Date());
+    liveItems.sort((a, b) => {
+      const isAToday = a.date === todayStr;
+      const isBToday = b.date === todayStr;
+      if (isAToday && !isBToday) return -1;
+      if (!isAToday && isBToday) return 1;
+
+      const dateCmp = (b.date || '').localeCompare(a.date || '');
+      if (dateCmp !== 0) return dateCmp;
+
+      return (b.startTime || '').localeCompare(a.startTime || '');
+    });
 
     return liveItems;
   }, [studentAttendanceRecords, studentEnrolledLectures, data?.lectures, currentStudent?.classGroup, unifiedStudentLetters]);
@@ -588,7 +622,7 @@ export default function StudentPortalView({
       list = list.filter(lec => lec.status === studentLectureFilter);
     }
     if (sortAscDate) {
-      list.reverse();
+      list.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.startTime || '').localeCompare(b.startTime || ''));
     }
     return list;
   }, [unifiedLectureRecords, studentLectureFilter, sortAscDate]);
@@ -1337,10 +1371,6 @@ export default function StudentPortalView({
                     </p>
                   </div>
                   <div className="attendance-page-heading-right">
-                    <div className="attendance-last-updated-capsule">
-                      <IconCalendarSmall size={14} />
-                      <span>Last Updated: {lastUpdated}</span>
-                    </div>
                     <button
                       type="button"
                       className="attendance-refresh-btn"

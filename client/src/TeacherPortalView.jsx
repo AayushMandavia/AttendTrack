@@ -294,6 +294,7 @@ export default function TeacherPortalView({
   const [isSaving, setIsSaving] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [showAllLogsModal, setShowAllLogsModal] = useState(false);
+  const userManuallySelectedRef = useRef(false);
 
   // Live real-time clock updating every 1000ms
   const [now, setNow] = useState(() => new Date());
@@ -386,20 +387,19 @@ export default function TeacherPortalView({
   // Default lectureId to the in-progress / real-time lecture matching the current clock time
   useEffect(() => {
     if (!data.lectures || data.lectures.length === 0) return;
-    const selectedLec = data.lectures.find(l => l.id === lectureId);
     const hasUnsaved = Object.keys(statuses).length > 0;
 
-    // If current selection is already for today, respect it unless it was uninitialized
-    if (selectedLec && selectedLec.date === todayStr) {
+    // If teacher has unsaved edits on another lecture, do not disrupt
+    if (hasUnsaved) return;
+
+    // If user has explicitly picked a lecture from the dropdown, don't override it while on the page
+    if (userManuallySelectedRef.current && lectureId) {
       return;
     }
 
-    // If teacher has unsaved edits on another lecture, do not disrupt
-    if (hasUnsaved && selectedLec) return;
-
     // Resolve real-time lecture matching the exact clock time (e.g. at 17:00, select 17:00-18:00)
     const realTimeLec = resolveRealTimeLecture(data.lectures, null, now);
-    if (realTimeLec) {
+    if (realTimeLec && realTimeLec.id !== lectureId) {
       setLectureId(realTimeLec.id);
       return;
     }
@@ -746,6 +746,7 @@ export default function TeacherPortalView({
       const confirmDiscard = window.confirm('You have unsaved attendance changes for this lecture. Switch lecture and discard unsaved edits?');
       if (!confirmDiscard) return;
     }
+    userManuallySelectedRef.current = true;
     setLectureId(newId);
     setStatuses({});
     setSearchQuery('');

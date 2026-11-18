@@ -6,6 +6,8 @@
  */
 
 export const COLLEGE_TIMEZONE = 'Asia/Kolkata';
+export const UNMARKED_LATE_HOURS = 1;
+export const LATE_CUTOFF_TIME = '18:00';
 
 export function getLocalDateStr(date = new Date()) {
   try {
@@ -76,6 +78,47 @@ export function isLateCutoffReached(lectureDate, now = new Date()) {
 }
 
 /**
+ * Checks whether 1 hour has elapsed after a lecture's scheduled end time.
+ */
+export function isUnmarkedLateWindowPassed(lecture, now = new Date()) {
+  if (!lecture || !lecture.date) return false;
+  const todayStr = getLocalDateStr(now);
+  const currentTimeStr = getLocalTimeStr(now);
+
+  if (lecture.date < todayStr) return true;
+  if (lecture.date > todayStr) return false;
+
+  const endTimeStr = lecture.endTime || lecture.startTime || '00:00';
+  const [endH, endM = 0] = endTimeStr.split(':').map(Number);
+  const lateCutoffH = endH + UNMARKED_LATE_HOURS;
+  const lateCutoffTimeStr = `${String(lateCutoffH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+
+  return currentTimeStr >= lateCutoffTimeStr;
+}
+
+/**
+ * Resolves attendance status according to the institutional rules:
+ * - If marked: preserves 'Present' / 'Absent'; converts 'Late' to 'Absent' after 6:00 PM.
+ * - If unmarked: becomes 'Late' 1 hour after lecture end; becomes 'Absent' after 6:00 PM.
+ */
+export function resolveAttendanceStatusForSession(lecture, existingStatus = null, now = new Date()) {
+  const isPast6PM = isLateCutoffReached(lecture?.date, now);
+
+  if (existingStatus) {
+    if (existingStatus === 'Late') {
+      return isPast6PM ? 'Absent' : 'Late';
+    }
+    return existingStatus;
+  }
+
+  if (lecture && isUnmarkedLateWindowPassed(lecture, now)) {
+    return isPast6PM ? 'Absent' : 'Late';
+  }
+
+  return 'Scheduled';
+}
+
+/**
  * Resolves the real-time active lecture matching the current clock time.
  * Prioritizes today's lecture currently in session (e.g. 17:00-18:00 when time is 17:00).
  */
@@ -130,3 +173,4 @@ export function resolveRealTimeLecture(lectures = [], preferredFacultyIds = null
 
   return lectures[0] || null;
 }
+

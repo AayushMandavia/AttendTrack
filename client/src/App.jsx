@@ -509,10 +509,10 @@ export default function App() {
             });
             const postData = await postRes.json().catch(() => ({}));
             if (postRes.ok) {
-              const queuedCount = postData.items?.length || eligibleStudents.length;
+              const approvedCount = postData.approved?.length || postData.items?.length || eligibleStudents.length;
               const skippedCount = rawExtractedStudents.length - eligibleStudents.length;
               setMultiNotice(
-                `Document "${originalName}" parsed: ${queuedCount} verified student(s) automatically queued into the Review Queue below.${skippedCount > 0 ? ` (${skippedCount} student(s) with unverified SAP IDs skipped for review).` : ''}`
+                `Document "${originalName}" parsed: ${approvedCount} student(s) automatically approved and marked Present in official attendance records.${skippedCount > 0 ? ` (${skippedCount} student(s) with unverified SAP IDs skipped).` : ''}`
               );
               setMultiNoticeType('success');
               refresh();

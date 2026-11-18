@@ -45,7 +45,12 @@ import {
   isTeacherAuthorizedForLecture,
   institutionalUsers
 } from './auth.js';
-import { checkAttendanceCorrectionWindow, isLateCutoffPassed } from './attendance-window.js';
+import {
+  checkAttendanceCorrectionWindow,
+  isLateCutoffPassed,
+  isUnmarkedLateWindowPassed,
+  resolveAttendanceStatusForSession
+} from './attendance-window.js';
 import {
   LUNCH_BREAK,
   DAILY_TIME_SLOTS,
@@ -924,6 +929,30 @@ app.post('/api/letters', async (req, res) => {
       }
 
       const items = await queueBatchAttendanceLetters(batchItems, actor);
+
+      // Auto-approval workflow: Coordinator uploads automatically approve and mark attendance
+      const shouldAutoApprove = req.body.autoApprove !== false;
+      if (shouldAutoApprove && items.length > 0) {
+        try {
+          const approvalResult = await recordBatchLetterDecision({
+            letterIds: items.map(l => l.id),
+            decision: 'approve',
+            actor,
+            allowManualApproval: true
+          });
+          const approvedCount = approvalResult.approved?.length || items.length;
+          return res.status(201).json({
+            message: `Document processed: ${approvedCount} attendance letter(s) automatically approved and marked Present in official attendance records.${skippedStudents.length > 0 ? ` ${skippedStudents.length} skipped.` : ''}`,
+            items: approvalResult.approved || items,
+            approved: approvalResult.approved || items,
+            autoApproved: true,
+            skipped: skippedStudents
+          });
+        } catch (approvalErr) {
+          console.warn('[Letters] Auto-approval encountered an issue, kept letters queued:', approvalErr.message);
+        }
+      }
+
       return res.status(201).json({
         message: `Queued ${items.length} student attendance letters for review.${skippedStudents.length > 0 ? ` ${skippedStudents.length} skipped.` : ''}`,
         items,
@@ -1034,6 +1063,25 @@ app.post('/api/letters', async (req, res) => {
       lectureId: matched?.id || null,
       validation
     }, actor);
+
+    const shouldAutoApprove = req.body.autoApprove !== false;
+    if (shouldAutoApprove && item) {
+      try {
+        const approvedItem = await recordLetterDecision({
+          letterId: item.id,
+          decision: 'approve',
+          actor,
+          allowManualApproval: true
+        });
+        return res.status(201).json({
+          message: `Letter automatically approved for ${student.name}. Attendance updated to Present.`,
+          item: approvedItem,
+          autoApproved: true
+        });
+      } catch (singleErr) {
+        console.warn('[Letters] Single auto-approval notice:', singleErr.message);
+      }
+    }
 
     res.status(201).json({ message: `Letter added to review queue. ${validation}.`, item });
   } catch (err) {
